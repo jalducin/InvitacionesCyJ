@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invitación de boda</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link id="fonts" rel="stylesheet">
+  <style>
+    html,body{margin:0;background:#f1ece3;min-height:100%}
+    #app{min-height:100vh}
+    .state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:"Montserrat",system-ui,sans-serif;color:#4a463f}
+    .state h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:1.8rem;margin:0 0 8px}
+    .spinner{width:34px;height:34px;border:3px solid #d9cfbd;border-top-color:#8a6d3b;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:24px;color:#fff;background:rgba(30,26,22,.78);backdrop-filter:blur(6px);font-family:"Montserrat",system-ui,sans-serif}
+    .gate p{margin:0;letter-spacing:.2em;text-transform:uppercase;font-size:.75rem}
+    .gate h2{font-family:"Great Vibes",cursive;font-weight:400;font-size:2.8rem;margin:0 0 12px}
+    .gate button{padding:14px 30px;border-radius:999px;border:1px solid #fff;background:transparent;color:#fff;font:inherit;letter-spacing:.12em;cursor:pointer}
+    .music{position:fixed;right:16px;bottom:16px;z-index:40;width:48px;height:48px;border-radius:50%;border:0;background:#8a6d3b;color:#fff;font-size:1.2rem;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer}
+    .rsvp form{display:flex;flex-direction:column;align-items:center;gap:14px}
+    .rsvp .choices{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .rsvp label.opt{padding:10px 18px;border:1px solid #cdbb9a;border-radius:999px;cursor:pointer;font-family:"Montserrat",system-ui,sans-serif;font-size:.9rem}
+    .rsvp label.opt:has(input:checked){background:#8a6d3b;border-color:#8a6d3b;color:#fff}
+    .rsvp label.opt input{position:absolute;opacity:0;pointer-events:none}
+    .rsvp select{font:inherit;font-size:1.05rem;padding:8px 12px;border-radius:6px;border:1px solid #cdbb9a;background:#fff}
+    .rsvp .msg{min-height:1.2em;margin:0;font-family:"Montserrat",system-ui,sans-serif;font-size:.85rem}
+    .rsvp .msg.err{color:#a3302a}
+    .rsvp .done{font-size:1.25rem;margin:0}
+  </style>
+</head>
+<body>
+  <div id="app"><div class="state"><div class="spinner"></div><p>Cargando tu invitación…</p></div></div>
+  <script src="common.js"></script>
+  <script>
+    document.getElementById("fonts").href = FONTS_HREF;
+    const style = document.createElement("style");
+    style.textContent = INVITATION_CSS;
+    document.head.appendChild(style);
+
+    const app = document.getElementById("app");
+    const qs = new URLSearchParams(location.search);
+    const slug = qs.get("b") || "";
+    const token = qs.get("g") || "";
+
+    function fail(title, text) {
+      app.innerHTML = `<div class="state"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>`;
+    }
+
+    function rsvpHtml(g) {
+      if (g.rsvp === "si") {
+        return `<h2>Confirmación</h2><p class="done">¡Gracias! Confirmaste ${g.rsvp_pases} ${g.rsvp_pases === 1 ? "pase" : "pases"}.</p>
+          <button class="btn ghost" data-change>Cambiar respuesta</button>`;
+      }
+      if (g.rsvp === "no") {
+        return `<h2>Confirmación</h2><p class="done">Gracias por avisarnos. Te vamos a extrañar.</p>
+          <button class="btn ghost" data-change>Cambiar respuesta</button>`;
+      }
+      const opts = Array.from({ length: g.pases }, (_, i) => i + 1)
+        .map((n) => `<option value="${n}" ${n === g.pases ? "selected" : ""}>${n} ${n === 1 ? "pase" : "pases"}</option>`)
+        .join("");
+      return `<h2>Confirma tu asistencia</h2>
+        <form>
+          <div class="choices">
+            <label class="opt"><input type="radio" name="r" value="si" checked> Sí asistiré</label>
+            <label class="opt"><input type="radio" name="r" value="no"> No podré ir</label>
+          </div>
+          <select name="pases" aria-label="Pases que usarás">${opts}</select>
+          <button class="btn" type="submit">Enviar respuesta</button>
+          <p class="msg" role="status"></p>
+        </form>`;
+    }
+
+    function mountRsvp(slot, g) {
+      slot.classList.add("rsvp");
+      slot.innerHTML = rsvpHtml(g);
+      const change = slot.querySelector("[data-change]");
+      if (change) change.onclick = () => mountRsvp(slot, { ...g, rsvp: null });
+      const form = slot.querySelector("form");
+      if (!form) return;
+      const sel = form.querySelector("select");
+      form.addEventListener("change", () => (sel.hidden = form.r.value !== "si"));
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const msg = form.querySelector(".msg");
+        const btn = form.querySelector("button");
+        btn.disabled = true;
+        msg.className = "msg";
+        msg.textContent = "Enviando…";
+        try {
+          const r = await api({ action: "rsvp", slug, token, rsvp: form.r.value, pases: Number(sel.value) });
+          mountRsvp(slot, { ...g, rsvp: r.rsvp, rsvp_pases: r.rsvp_pases });
+        } catch (err) {
+          msg.className = "msg err";
+          msg.textContent = err.message;
+          btn.disabled = false;
+        }
+      });
+    }
+
+    function setupMusic(c) {
+      const src = safeUrl(c.songUrl);
+      if (c.songSrc === "none" || !src) return null;
+      const audio = new Audio(src);
+      audio.loop = true;
+      audio.volume = Math.min(1, Math.max(0, (Number(c.volume) || 60) / 100));
+      const btn = document.createElement("button");
+      btn.className = "music";
+      btn.setAttribute("aria-label", "Pausar o reproducir música");
+      btn.textContent = "♪";
+      btn.onclick = () => (audio.paused ? audio.play() : audio.pause());
+      audio.addEventListener("play", () => (btn.style.opacity = 1));
+      audio.addEventListener("pause", () => (btn.style.opacity = 0.55));
+      document.body.appendChild(btn);
+      return audio;
+    }
+
+    async function main() {
+      if (!slug || !token) return fail("Invitación no encontrada", "Abre el link completo que te enviaron por WhatsApp.");
+      let data;
+      try {
+        data = await api({ action: "get", slug, token });
+      } catch (err) {
+        return fail("No pudimos abrir tu invitación", err.message);
+      }
+      const c = data.boda.config || {};
+      const g = data.invitado;
+      document.title = `${coupleShort(c) || "Nuestra boda"} · Invitación`;
+      app.innerHTML = renderInvitation(c, g);
+      wireInvitation(app, c);
+      mountRsvp(app.querySelector(".rsvp-slot"), g);
+
+      const audio = setupMusic(c);
+      const gate = document.createElement("div");
+      gate.className = "gate";
+      gate.innerHTML = `<p>Estás invitado a la boda de</p><h2>${esc(coupleShort(c))}</h2><button>Abrir invitación</button>`;
+      gate.querySelector("button").onclick = () => {
+        gate.remove();
+        if (audio) audio.play().catch(() => {});
+      };
+      document.body.appendChild(gate);
+    }
+    main();
+  </script>
+</body>
+</html>

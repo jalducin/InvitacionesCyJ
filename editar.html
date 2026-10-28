@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de invitación</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link id="fonts" rel="stylesheet">
+  <style>
+    :root{--bg:#f4f1ec;--panel:#fff;--ink:#26241f;--muted:#6f6a61;--line:#e3ddd2;--accent:#8a6d3b;--accent-ink:#fff;--ok:#2f7a4a;--warn:#a26a12;--err:#a3302a}
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Montserrat",system-ui,sans-serif;font-size:15px}
+    h1,h2,h3{margin:0}
+    button,input,select,textarea{font:inherit;color:inherit}
+    .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+    .top h1{font-size:1rem;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .top .status{font-size:.8rem;color:var(--muted)}
+    @media (max-width:560px){.top{flex-wrap:wrap;gap:8px}.top h1{flex-basis:100%}.top .status{flex:1}}
+    .top .status.dirty{color:var(--warn)}
+    .top .status.err{color:var(--err)}
+    .btn{text-decoration:none;display:inline-block;padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;white-space:nowrap;font-size:.88rem}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+    .btn.small{padding:5px 10px;font-size:.8rem}
+    .btn.danger{color:var(--err)}
+    .btn:disabled{opacity:.5;cursor:default}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:20px;padding:20px 16px;max-width:1240px;margin:0 auto}
+    @media (max-width:900px){.layout{grid-template-columns:1fr}.preview-wrap{order:-1}}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+    .panel h2{font-size:.95rem;font-weight:600;margin-bottom:14px}
+    .panel .hint{font-size:.8rem;color:var(--muted);margin:-6px 0 12px}
+    .field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+    .field label,.lbl{font-size:.8rem;color:var(--muted)}
+    .field input,.field select,.field textarea,.row input,.row select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+    .field textarea{resize:vertical;min-height:60px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:520px){.two{grid-template-columns:1fr}}
+    .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .swatches{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+    .sw{width:64px;height:48px;border-radius:8px;border:2px solid transparent;cursor:pointer;position:relative;font-size:.65rem;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px}
+    .sw[aria-pressed=true]{border-color:var(--ink)}
+    .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+    .seg button{border:0;background:#fff;padding:7px 14px;cursor:pointer;font-size:.85rem}
+    .seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+    .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px}
+    .thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:#eee}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .thumb button{position:absolute;right:4px;top:4px;border:0;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:.72rem;padding:3px 6px;cursor:pointer}
+    .bgimg{max-width:180px;border-radius:8px;display:block;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse;font-size:.85rem}
+    th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+    th{font-weight:500;color:var(--muted);font-size:.75rem}
+    td input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px}
+    td input[type=number]{width:64px}
+    .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;white-space:nowrap}
+    .tag.si{background:#e3f1e7;color:var(--ok)}
+    .tag.no{background:#f6e2e0;color:var(--err)}
+    .tag.pend{background:#f1ede5;color:var(--muted)}
+    .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .stat{flex:1;min-width:110px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+    .stat b{display:block;font-size:1.4rem}
+    .stat span{font-size:.75rem;color:var(--muted)}
+    .table-wrap{overflow-x:auto}
+    .msgs{display:flex;flex-direction:column;gap:10px}
+    .msg{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+    .msg pre{white-space:pre-wrap;word-break:break-word;margin:0 0 8px;font:inherit;font-size:.85rem}
+    .msg .acts{display:flex;gap:6px;flex-wrap:wrap}
+    .preview-wrap{position:sticky;top:70px;align-self:start;max-height:calc(100vh - 90px);overflow:auto;border-radius:12px;border:1px solid var(--line);background:#f1ece3}
+    @media (max-width:900px){.preview-wrap{position:static;max-height:70vh}}
+    .preview-wrap .inv .cover{min-height:520px}
+    .login{max-width:420px;margin:12vh auto;padding:0 16px}
+    .login .panel{padding:24px}
+    .login h1{font-family:"Cormorant Garamond",Georgia,serif;font-size:1.8rem;margin-bottom:6px}
+    .login p{color:var(--muted);font-size:.9rem;margin:0 0 16px}
+    .error{color:var(--err);font-size:.85rem;min-height:1.2em;margin:6px 0 0}
+    .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:.85rem;z-index:60}
+    .busy{font-size:.8rem;color:var(--muted);margin-top:6px}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="common.js"></script>
+  <script>
+    document.getElementById("fonts").href = FONTS_HREF;
+    const st = document.createElement("style");
+    st.textContent = INVITATION_CSS;
+    document.head.appendChild(st);
+
+    const root = document.getElementById("root");
+    const slug = new URLSearchParams(location.search).get("b") || "";
+    const KEY_STORE = "edit-key:" + slug;
+    const MAX_PHOTOS = 10;
+
+    let editKey = "";
+    let cfg = {};
+    let guests = []; // {token, nombre, pases, rsvp, rsvp_pases, rsvp_at, abierta_at, nuevo}
+    let dirty = false;
+
+    const store = {
+      get: (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+      set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+      del: (k) => { try { localStorage.removeItem(k); } catch {} },
+    };
+
+    function toast(t) {
+      document.querySelectorAll(".toast").forEach((t) => t.remove());
+      const el = document.createElement("div");
+      el.className = "toast";
+      el.textContent = t;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }
+
+    function newToken() {
+      const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      return Array.from(crypto.getRandomValues(new Uint8Array(24)), (x) => A[x % A.length]).join("");
+    }
+
+    const inviteUrl = (token) => {
+      const u = new URL("./", location.href);
+      u.search = `?b=${encodeURIComponent(slug)}&g=${encodeURIComponent(token)}`;
+      return u.toString();
+    };
+
+    // ---------- Acceso ----------
+    function showLogin(err) {
+      root.innerHTML = `
+        <div class="login"><div class="panel">
+          <h1>Editor de la invitación</h1>
+          <p>${slug ? `Boda: <b>${esc(slug)}</b>. ` : ""}Escribe la clave de edición que te dieron.</p>
+          <form>
+            <div class="field"><label for="k">Clave de edición</label><input id="k" type="password" autocomplete="current-password" required></div>
+            <button class="btn primary" type="submit">Entrar</button>
+            <p class="error">${esc(err || "")}</p>
+          </form>
+        </div></div>`;
+      if (!slug) {
+        root.querySelector(".error").textContent = "Falta la boda en el link (?b=…). Abre el link del editor que te enviaron.";
+        root.querySelector("button").disabled = true;
+        return;
+      }
+      root.querySelector("form").onsubmit = async (e) => {
+        e.preventDefault();
+        const k = root.querySelector("#k").value.trim();
+        const btn = root.querySelector("button");
+        btn.disabled = true;
+        root.querySelector(".error").textContent = "";
+        await tryLoad(k, true);
+        btn.disabled = false;
+      };
+    }
+
+    async function tryLoad(k, remember) {
+      try {
+        const d = await api({ action: "load", slug, editKey: k });
+        editKey = k;
+        if (remember) store.set(KEY_STORE, k);
+        cfg = { ...DEFAULT_CONFIG, ...(d.config || {}) };
+        guests = (d.invitados || []).map((g) => ({ ...g }));
+        dirty = false;
+        showEditor();
+      } catch (err) {
+        store.del(KEY_STORE);
+        showLogin(err.message);
+      }
+    }
+
+    // ---------- Editor ----------
+    function markDirty() {
+      dirty = true;
+      const s = document.getElementById("status");
+      if (s) { s.textContent = "Cambios sin guardar"; s.className = "status dirty"; }
+      renderPreview();
+      renderMessages();
+    }
+
+    function showEditor() {
+      root.innerHTML = `
+        <header class="top">
+          <h1>${esc(coupleShort(cfg) || slug)}</h1>
+          <span id="status" class="status">Todo guardado</span>
+          <a class="btn" id="openInv" target="_blank" rel="noopener">Ver como invitado</a>
+          <button class="btn primary" id="save">Guardar cambios</button>
+        </header>
+        <div class="layout">
+          <div id="form"></div>
+          <div class="preview-wrap"><div id="preview"></div></div>
+        </div>`;
+      document.getElementById("save").onclick = save;
+      buildForm();
+      renderPreview();
+      updateOpenLink();
+    }
+
+    function updateOpenLink() {
+      const a = document.getElementById("openInv");
+      const g = guests.find((x) => !x.nuevo);
+      if (g) { a.href = inviteUrl(g.token); a.hidden = false; } else a.hidden = true;
+    }
+
+    function renderPreview() {
+      const p = document.getElementById("preview");
+      if (!p) return;
+      p.innerHTML = renderInvitation(cfg, { nombre: "Nombre del invitado", pases: 2 });
+      wireInvitation(p, cfg);
+    }
+
+    const bind = (el, key, fn) => {
+      el.value = cfg[key] ?? "";
+      el.addEventListener("input", () => { cfg[key] = fn ? fn(el.value) : el.value; markDirty(); });
+    };
+
+    function buildForm() {
+      const f = document.getElementById("form");
+      f.innerHTML = `
+        <section class="panel"><h2>Pareja</h2>
+          <div class="two">
+            <div class="field"><label>Nombre 1</label><input data-k="n1"></div>
+            <div class="field"><label>Nombre 2</label><input data-k="n2"></div>
+          </div>
+          <div class="field"><label>Frase</label><textarea data-k="note" maxlength="300"></textarea></div>
+        </section>
+
+        <section class="panel"><h2>Fecha y lugar</h2>
+          <div class="two">
+            <div class="field"><label>Fecha</label><input type="date" data-k="date"></div>
+            <div class="field"><label>Hora</label><input type="time" data-k="time"></div>
+          </div>
+          <div class="two">
+            <div class="field"><label>Lugar</label><input data-k="venue"></div>
+            <div class="field"><label>Ciudad</label><input data-k="city"></div>
+          </div>
+          <div class="field"><label>Enlace de la ubicación (Google Maps)</label><input type="url" data-k="mapUrl" placeholder="https://maps.app.goo.gl/…"></div>
+        </section>
+
+        <section class="panel"><h2>Programa</h2>
+          <div id="sched"></div>
+          <button class="btn small" id="addSched">+ Agregar momento</button>
+        </section>
+
+        <section class="panel"><h2>Diseño</h2>
+          <span class="lbl">Estilo de letra</span><br>
+          <div class="seg" id="tpl">
+            <button data-v="clasico">Clásico</button><button data-v="moderno">Moderno</button>
+          </div><br>
+          <span class="lbl">Fondo de la portada</span><br>
+          <div class="seg" id="bgKind">
+            <button data-v="preset">Color</button><button data-v="image">Foto</button>
+          </div>
+          <div id="bgPreset" class="swatches"></div>
+          <div id="bgImage">
+            <div id="bgImgBox"></div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="bgFile">
+            <p class="busy" id="bgBusy"></p>
+            <div class="two">
+              <div class="field"><label>Velo sobre la foto: <span id="ovv"></span>%</label><input type="range" min="0" max="85" id="overlay"></div>
+              <div class="field"><label>Letras</label><select id="tone"><option value="light">Oscuras (velo claro)</option><option value="dark">Claras (velo oscuro)</option></select></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel"><h2>Sesión de fotos</h2>
+          <p class="hint">Hasta ${MAX_PHOTOS} fotos. Se reducen de tamaño antes de subirlas.</p>
+          <div class="field"><label>Título</label><input data-k="photosTitle"></div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" multiple id="photoFiles">
+          <p class="busy" id="phBusy"></p>
+          <div class="thumbs" id="thumbs"></div>
+          <button class="btn small danger" id="clearPhotos" style="margin-top:10px">Quitar todas</button>
+        </section>
+
+        <section class="panel"><h2>Música</h2>
+          <div class="seg" id="songSrc">
+            <button data-v="none">Sin música</button><button data-v="upload">Subir canción</button><button data-v="url">Enlace</button>
+          </div>
+          <div id="songUpload"><input type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/ogg,.mp3,.m4a" id="songFile"><p class="busy" id="songBusy"></p></div>
+          <div id="songLink" class="field"><label>Enlace directo al archivo de audio (https)</label><input type="url" id="songUrlIn" placeholder="https://…/cancion.mp3"></div>
+          <div id="songMeta">
+            <p class="hint" id="songNow"></p>
+            <div class="two">
+              <div class="field"><label>Nombre de la canción</label><input data-k="songTitle"></div>
+              <div class="field"><label>Volumen: <span id="volv"></span>%</label><input type="range" min="0" max="100" id="volume"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel"><h2>Invitados y confirmaciones</h2>
+          <div class="stats" id="stats"></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Nombre</th><th>Pases</th><th>Respuesta</th><th></th></tr></thead>
+            <tbody id="gbody"></tbody>
+          </table></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn small" id="addGuest">+ Agregar invitado</button>
+            <button class="btn small" id="bulkBtn">Pegar lista</button>
+          </div>
+          <div id="bulk" hidden>
+            <div class="field"><label>Un invitado por línea: nombre, pases (ej. “Familia Pérez, 4”)</label><textarea id="bulkTxt" rows="5"></textarea></div>
+            <button class="btn small primary" id="bulkAdd">Agregar a la lista</button>
+          </div>
+        </section>
+
+        <section class="panel"><h2>Mensajes para WhatsApp</h2>
+          <label style="display:flex;gap:8px;align-items:center;font-size:.88rem;margin-bottom:12px"><input type="checkbox" id="details"> Agregar fecha, lugar y programa debajo del link</label>
+          <div class="row"><button class="btn small" id="copyAll">Copiar todos</button></div>
+          <div class="msgs" id="msgs"></div>
+        </section>
+
+        <section class="panel"><h2>Sesión</h2>
+          <button class="btn small" id="logout">Salir del editor</button>
+        </section>`;
+
+      f.querySelectorAll("[data-k]").forEach((el) => bind(el, el.dataset.k));
+
+      // Programa
+      const renderSched = () => {
+        const box = f.querySelector("#sched");
+        box.innerHTML = (cfg.schedule || [])
+          .map(
+            (s, i) => `<div class="row" data-i="${i}">
+              <input type="time" data-f="from" value="${esc(s.from)}" style="max-width:120px" aria-label="Desde">
+              <input type="time" data-f="to" value="${esc(s.to)}" style="max-width:120px" aria-label="Hasta">
+              <input data-f="label" value="${esc(s.label)}" placeholder="Ceremonia, cena…" aria-label="Momento">
+              <button class="btn small danger" data-del aria-label="Quitar">✕</button></div>`
+          )
+          .join("");
+        box.querySelectorAll(".row").forEach((r) => {
+          const i = Number(r.dataset.i);
+          r.querySelectorAll("input").forEach((inp) =>
+            inp.addEventListener("input", () => { cfg.schedule[i][inp.dataset.f] = inp.value; markDirty(); })
+          );
+          r.querySelector("[data-del]").onclick = () => { cfg.schedule.splice(i, 1); renderSched(); markDirty(); };
+        });
+      };
+      renderSched();
+      f.querySelector("#addSched").onclick = () => {
+        cfg.schedule = [...(cfg.schedule || []), { from: "", to: "", label: "" }];
+        renderSched();
+        markDirty();
+      };
+
+      // Segmentos
+      const seg = (id, key, after) => {
+        const el = f.querySelector("#" + id);
+        const paint = () => el.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === cfg[key]));
+        el.querySelectorAll("button").forEach((b) => (b.onclick = () => { cfg[key] = b.dataset.v; paint(); after && after(); markDirty(); }));
+        paint();
+        after && after();
+      };
+
+      // Diseño
+      seg("tpl", "template");
+      const sw = f.querySelector("#bgPreset");
+      sw.innerHTML = Object.entries(PRESETS)
+        .map(([k, p]) => `<button class="sw" data-v="${k}" style="background:${p.bg};color:${p.tone === "dark" ? "#fff" : "#333"}">${esc(p.label)}</button>`)
+        .join("");
+      const paintSw = () => sw.querySelectorAll(".sw").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === cfg.preset));
+      sw.querySelectorAll(".sw").forEach((b) => (b.onclick = () => { cfg.preset = b.dataset.v; paintSw(); markDirty(); }));
+      paintSw();
+      const paintBgImg = () => {
+        f.querySelector("#bgImgBox").innerHTML = safeUrl(cfg.image) ? `<img class="bgimg" src="${esc(cfg.image)}" alt="Foto de fondo">` : "";
+      };
+      paintBgImg();
+      seg("bgKind", "bgKind", () => {
+        f.querySelector("#bgPreset").hidden = cfg.bgKind !== "preset";
+        f.querySelector("#bgImage").hidden = cfg.bgKind !== "image";
+      });
+      const ov = f.querySelector("#overlay");
+      ov.value = cfg.overlay;
+      f.querySelector("#ovv").textContent = cfg.overlay;
+      ov.oninput = () => { cfg.overlay = Number(ov.value); f.querySelector("#ovv").textContent = ov.value; markDirty(); };
+      const tone = f.querySelector("#tone");
+      tone.value = cfg.tone === "dark" ? "dark" : "light";
+      tone.onchange = () => { cfg.tone = tone.value; markDirty(); };
+      f.querySelector("#bgFile").onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const busy = f.querySelector("#bgBusy");
+        busy.textContent = "Subiendo foto…";
+        try {
+          cfg.image = await uploadImage(file, 2000);
+          paintBgImg();
+          busy.textContent = "";
+          markDirty();
+        } catch (err) {
+          busy.textContent = err.message;
+        }
+        e.target.value = "";
+      };
+
+      // Fotos
+      const paintThumbs = () => {
+        const t = f.querySelector("#thumbs");
+        t.innerHTML = (cfg.photos || [])
+          .map((u, i) => `<div class="thumb"><img src="${esc(u)}" alt=""><button data-i="${i}">Quitar</button></div>`)
+          .join("");
+        t.querySelectorAll("button").forEach((b) => (b.onclick = () => { cfg.photos.splice(Number(b.dataset.i), 1); paintThumbs(); markDirty(); }));
+        f.querySelector("#clearPhotos").hidden = !(cfg.photos || []).length;
+      };
+      paintThumbs();
+      f.querySelector("#clearPhotos").onclick = () => {
+        if (!confirm("¿Quitar todas las fotos de la sesión?")) return;
+        cfg.photos = [];
+        paintThumbs();
+        markDirty();
+      };
+      f.querySelector("#photoFiles").onchange = async (e) => {
+        const files = [...e.target.files];
+        e.target.value = "";
+        const busy = f.querySelector("#phBusy");
+        const room = MAX_PHOTOS - (cfg.photos || []).length;
+        if (room <= 0) { busy.textContent = `Ya tienes ${MAX_PHOTOS} fotos. Quita alguna para subir otra.`; return; }
+        const take = files.slice(0, room);
+        const errors = [];
+        for (let i = 0; i < take.length; i++) {
+          busy.textContent = `Subiendo foto ${i + 1} de ${take.length}…`;
+          try {
+            cfg.photos = [...(cfg.photos || []), await uploadImage(take[i], 1600)];
+            paintThumbs();
+            markDirty();
+          } catch (err) {
+            errors.push(`${take[i].name}: ${err.message}`);
+          }
+        }
+        const skipped = files.length - take.length;
+        busy.textContent = [errors.join(" · "), skipped ? `${skipped} no se subieron: el máximo es ${MAX_PHOTOS}.` : ""].filter(Boolean).join(" ");
+      };
+
+      // Música
+      const songUrlIn = f.querySelector("#songUrlIn");
+      const paintSong = () => {
+        f.querySelector("#songUpload").hidden = cfg.songSrc !== "upload";
+        f.querySelector("#songLink").hidden = cfg.songSrc !== "url";
+        f.querySelector("#songMeta").hidden = cfg.songSrc === "none";
+        f.querySelector("#songNow").textContent = safeUrl(cfg.songUrl) ? "Hay una canción cargada." : "Todavía no hay canción.";
+        if (cfg.songSrc === "url") songUrlIn.value = cfg.songUrl || "";
+      };
+      seg("songSrc", "songSrc", paintSong);
+      songUrlIn.oninput = () => { cfg.songUrl = songUrlIn.value.trim() || null; paintSong(); markDirty(); };
+      f.querySelector("#songFile").onchange = async (e) => {
+        const file = e.target.files[0];
+        e.target.value = "";
+        if (!file) return;
+        const busy = f.querySelector("#songBusy");
+        if (file.size > 8 * 1024 * 1024) { busy.textContent = "La canción pesa más de 8 MB."; return; }
+        busy.textContent = "Subiendo canción…";
+        try {
+          const type = file.type || (/\.m4a$/i.test(file.name) ? "audio/mp4" : "audio/mpeg");
+          const { url } = await api({ action: "upload", slug, editKey, contentType: type, dataBase64: await fileToBase64(file) });
+          cfg.songUrl = url;
+          if (!cfg.songTitle) cfg.songTitle = file.name.replace(/\.[^.]+$/, "");
+          f.querySelector('[data-k="songTitle"]').value = cfg.songTitle;
+          busy.textContent = "";
+          paintSong();
+          markDirty();
+        } catch (err) {
+          busy.textContent = err.message;
+        }
+      };
+      const vol = f.querySelector("#volume");
+      vol.value = cfg.volume;
+      f.querySelector("#volv").textContent = cfg.volume;
+      vol.oninput = () => { cfg.volume = Number(vol.value); f.querySelector("#volv").textContent = vol.value; markDirty(); };
+
+      // Invitados
+      f.querySelector("#addGuest").onclick = () => {
+        guests.push({ token: newToken(), nombre: "", pases: 1, nuevo: true });
+        renderGuests();
+        markDirty();
+        const inputs = f.querySelectorAll("#gbody input[data-f=nombre]");
+        inputs[inputs.length - 1]?.focus();
+      };
+      f.querySelector("#bulkBtn").onclick = () => (f.querySelector("#bulk").hidden = !f.querySelector("#bulk").hidden);
+      f.querySelector("#bulkAdd").onclick = () => {
+        const lines = f.querySelector("#bulkTxt").value.split(/\n/).map((l) => l.trim()).filter(Boolean);
+        for (const l of lines) {
+          const m = l.match(/^(.*?)[,;\t]\s*(\d+)\s*(pases?)?$/i);
+          const nombre = (m ? m[1] : l).trim().slice(0, 120);
+          const pases = m ? Math.min(20, Math.max(1, Number(m[2]))) : 1;
+          if (nombre) guests.push({ token: newToken(), nombre, pases, nuevo: true });
+        }
+        f.querySelector("#bulkTxt").value = "";
+        f.querySelector("#bulk").hidden = true;
+        renderGuests();
+        markDirty();
+        toast(`${lines.length} invitados agregados. Guarda para activar sus links.`);
+      };
+
+      // Mensajes
+      const det = f.querySelector("#details");
+      det.checked = !!cfg.details;
+      det.onchange = () => { cfg.details = det.checked; markDirty(); };
+      f.querySelector("#copyAll").onclick = () => {
+        const ready = guests.filter((g) => !g.nuevo && g.nombre.trim());
+        if (!ready.length) return toast("No hay mensajes listos todavía.");
+        copy(ready.map(messageFor).join("\n\n"), `${ready.length} mensajes copiados`);
+      };
+
+      f.querySelector("#logout").onclick = () => {
+        if (dirty && !confirm("Tienes cambios sin guardar. ¿Salir de todos modos?")) return;
+        store.del(KEY_STORE);
+        dirty = false;
+        editKey = "";
+        showLogin();
+      };
+
+      renderGuests();
+    }
+
+    function renderGuests() {
+      const body = document.getElementById("gbody");
+      if (!body) return;
+      body.innerHTML = guests
+        .map((g, i) => {
+          const tag = g.nuevo
+            ? `<span class="tag pend">Sin guardar</span>`
+            : g.rsvp === "si"
+            ? `<span class="tag si">Asistirá · ${g.rsvp_pases}</span>`
+            : g.rsvp === "no"
+            ? `<span class="tag no">No asistirá</span>`
+            : `<span class="tag pend">${g.abierta_at ? "Abrió, sin responder" : "Sin abrir"}</span>`;
+          return `<tr data-i="${i}">
+            <td><input data-f="nombre" value="${esc(g.nombre)}" maxlength="120" aria-label="Nombre"></td>
+            <td><input data-f="pases" type="number" min="1" max="20" value="${g.pases}" aria-label="Pases"></td>
+            <td>${tag}</td>
+            <td><button class="btn small danger" data-del aria-label="Quitar invitado">✕</button></td></tr>`;
+        })
+        .join("") || `<tr><td colspan="4" style="color:var(--muted)">Aún no hay invitados.</td></tr>`;
+      body.querySelectorAll("tr[data-i]").forEach((tr) => {
+        const g = guests[Number(tr.dataset.i)];
+        tr.querySelector("[data-f=nombre]").oninput = (e) => { g.nombre = e.target.value; markDirty(); };
+        tr.querySelector("[data-f=pases]").oninput = (e) => { g.pases = Math.min(20, Math.max(1, Math.floor(Number(e.target.value)) || 1)); markDirty(); };
+        tr.querySelector("[data-del]").onclick = () => {
+          if (!g.nuevo && !confirm(`¿Quitar a ${g.nombre}? Su link dejará de funcionar al guardar.`)) return;
+          guests.splice(Number(tr.dataset.i), 1);
+          renderGuests();
+          markDirty();
+        };
+      });
+      renderStats();
+      renderMessages();
+    }
+
+    function renderStats() {
+      const s = document.getElementById("stats");
+      if (!s) return;
+      const saved = guests.filter((g) => !g.nuevo);
+      const sum = (a) => a.reduce((n, g) => n + (Number(g.pases) || 0), 0);
+      const si = saved.filter((g) => g.rsvp === "si");
+      const no = saved.filter((g) => g.rsvp === "no");
+      const pend = saved.filter((g) => !g.rsvp);
+      s.innerHTML = `
+        <div class="stat"><b>${saved.length}</b><span>invitaciones · ${sum(saved)} pases</span></div>
+        <div class="stat"><b>${si.reduce((n, g) => n + (g.rsvp_pases || 0), 0)}</b><span>personas confirmadas (${si.length} inv.)</span></div>
+        <div class="stat"><b>${no.length}</b><span>no asistirán</span></div>
+        <div class="stat"><b>${pend.length}</b><span>sin responder</span></div>`;
+    }
+
+    function messageFor(g) {
+      const n = Number(g.pases) || 1;
+      let m = `¡Hola ${g.nombre.trim()}! 💌 Esta es tu invitación (${n} ${n === 1 ? "pase" : "pases"}): ${inviteUrl(g.token)}`;
+      if (cfg.details) {
+        const when = [fmtDate(cfg.date), fmtTime(cfg.time)].filter(Boolean).join(", ");
+        const place = [cfg.venue, cfg.city].filter(Boolean).join(", ");
+        const extra = [];
+        if (when) extra.push(`📅 ${when}`);
+        if (place || safeUrl(cfg.mapUrl)) extra.push(`📍 ${[place, safeUrl(cfg.mapUrl)].filter(Boolean).join(": ")}`);
+        const sch = (cfg.schedule || []).filter((s) => s.label);
+        if (sch.length) extra.push(sch.map((s) => `• ${fmtTime(s.from)}${s.to ? ` – ${fmtTime(s.to)}` : ""} ${s.label}`).join("\n"));
+        if (extra.length) m += "\n\n" + extra.join("\n");
+      }
+      return m;
+    }
+
+    function renderMessages() {
+      const box = document.getElementById("msgs");
+      if (!box) return;
+      const pending = guests.filter((g) => g.nuevo).length;
+      const ready = guests.filter((g) => !g.nuevo && g.nombre.trim());
+      box.innerHTML =
+        (pending ? `<p class="hint" style="margin:0">${pending} invitado(s) nuevo(s): guarda los cambios para que su link funcione.</p>` : "") +
+        (ready.length
+          ? ready
+              .map((g) => {
+                const i = guests.indexOf(g);
+                return `<div class="msg"><pre>${esc(messageFor(g))}</pre><div class="acts">
+                  <button class="btn small" data-copy="${i}">Copiar</button>
+                  <a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(messageFor(g))}">Abrir en WhatsApp</a>
+                  <a class="btn small" target="_blank" rel="noopener" href="${esc(inviteUrl(g.token))}">Ver invitación</a></div></div>`;
+              })
+              .join("")
+          : `<p class="hint" style="margin:0">Agrega invitados y guarda para ver sus mensajes.</p>`);
+      box.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = () => copy(messageFor(guests[Number(b.dataset.copy)]), "Mensaje copiado")));
+    }
+
+    async function copy(text, done) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      toast(done);
+    }
+
+    // ---------- Subidas ----------
+    function fileToBase64(file) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).split(",")[1]);
+        r.onerror = () => rej(new Error("No se pudo leer el archivo"));
+        r.readAsDataURL(file);
+      });
+    }
+
+    async function uploadImage(file, maxSide) {
+      if (!/^image\//.test(file.type)) throw new Error("No es una imagen");
+      const bmp = await new Promise((res, rej) => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = () => rej(new Error("No se pudo abrir la imagen"));
+        img.src = URL.createObjectURL(file);
+      });
+      const scale = Math.min(1, maxSide / Math.max(bmp.naturalWidth, bmp.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(bmp.naturalWidth * scale);
+      c.height = Math.round(bmp.naturalHeight * scale);
+      c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(bmp.src);
+      const b64 = c.toDataURL("image/jpeg", 0.85).split(",")[1];
+      const { url } = await api({ action: "upload", slug, editKey, contentType: "image/jpeg", dataBase64: b64 });
+      return url;
+    }
+
+    // ---------- Guardar ----------
+    async function save() {
+      const btn = document.getElementById("save");
+      const s = document.getElementById("status");
+      const empty = guests.find((g) => !g.nombre.trim());
+      if (empty) { s.textContent = "Hay un invitado sin nombre"; s.className = "status err"; return; }
+      btn.disabled = true;
+      s.textContent = "Guardando…";
+      s.className = "status";
+      try {
+        await api({
+          action: "save",
+          slug,
+          editKey,
+          config: cfg,
+          invitados: guests.map((g) => ({ token: g.token, nombre: g.nombre.trim(), pases: Number(g.pases) || 1 })),
+        });
+        const d = await api({ action: "load", slug, editKey });
+        guests = (d.invitados || []).map((g) => ({ ...g }));
+        dirty = false;
+        s.textContent = "Todo guardado";
+        document.querySelector(".top h1").textContent = coupleShort(cfg) || slug;
+        renderGuests();
+        updateOpenLink();
+        toast("Cambios guardados");
+      } catch (err) {
+        s.textContent = err.message;
+        s.className = "status err";
+      }
+      btn.disabled = false;
+    }
+
+    window.addEventListener("beforeunload", (e) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    });
+
+    const saved = store.get(KEY_STORE);
+    if (slug && saved) tryLoad(saved, false);
+    else showLogin();
+  </script>
+</body>
+</html>
