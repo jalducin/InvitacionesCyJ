@@ -21,6 +21,7 @@
     .topbar .title{flex:1;min-width:200px}
     h1{font:600 30px/1.1 'Cormorant Garamond',Georgia,serif;margin:0;text-wrap:balance}
     .status{font-size:13px;color:var(--muted)}
+    .badge{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:3px 9px;border-radius:999px;margin-right:6px}
     .status.dirty{color:var(--warn)}
     .status.err{color:var(--err)}
     .topbar .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -146,6 +147,7 @@
     let guests = []; // {token, nombre, pases, rsvp, rsvp_pases, rsvp_at, abierta_at, nuevo}
     let dirty = false;
     let viewAs = null;
+    let role = "pareja"; // "admin" (super admin) o "pareja"
     const player = createPlayer();
 
     const store = {
@@ -209,6 +211,7 @@
         if (remember) store.set(KEY_STORE, k);
         S = normalizeConfig(d.config);
         guests = (d.invitados || []).map((g) => ({ ...g }));
+        role = d.role === "admin" ? "admin" : "pareja";
         dirty = false;
         showEditor();
       } catch (err) {
@@ -221,7 +224,7 @@
     function showEditor() {
       root.innerHTML = `
         <header class="topbar">
-          <div class="title"><h1 id="h-title"></h1><span id="status" class="status">Todo guardado</span></div>
+          <div class="title"><h1 id="h-title"></h1><span class="badge">${role === "admin" ? "Super admin" : "Pareja"}</span> <span id="status" class="status">Todo guardado</span></div>
           <div class="actions">
             <a class="btn" id="openInv" target="_blank" rel="noopener">Ver como invitado</a>
             <button class="primary" id="save">Guardar cambios</button>
@@ -347,6 +350,26 @@
           <div id="guests"></div>
           <p class="hint" style="margin-top:12px">Los invitados nuevos y los links cambiados empiezan a funcionar al tocar “Guardar cambios”.</p>
         </section>
+
+        ${
+          role === "admin"
+            ? `<section class="panel" style="margin-top:16px" aria-labelledby="h-acceso">
+          <h2 id="h-acceso">Acceso de la pareja</h2>
+          <div class="stack">
+            <p class="hint">Solo tú ves esta sección. Genera la clave de la pareja y entrégasela junto con el link del editor. Al generar una nueva, la anterior deja de servir.</p>
+            <div><button type="button" id="new-key">Generar clave nueva para la pareja</button></div>
+            <div id="key-out" class="stack" hidden>
+              <div class="field"><span class="lbl">Clave de la pareja</span><div class="addr" id="key-val"></div></div>
+              <div class="swatches">
+                <button type="button" id="key-copy">Copiar clave</button>
+                <button type="button" id="key-copy-msg">Copiar mensaje para la pareja</button>
+              </div>
+              <p class="hint">Cópiala ahora: por seguridad no se vuelve a mostrar. Si se pierde, genera otra.</p>
+            </div>
+          </div>
+        </section>`
+            : ""
+        }
 
         <section class="panel" style="margin-top:16px">
           <button type="button" class="quiet" id="logout">Salir del editor</button>
@@ -600,6 +623,29 @@
       };
 
       $("save").onclick = save;
+      if (role === "admin") {
+        const editorUrl = () => {
+          const u = new URL("editar.html", location.href);
+          u.search = `?b=${encodeURIComponent(slug)}`;
+          return u.toString();
+        };
+        $("new-key").onclick = async () => {
+          if (!confirm("¿Generar una clave nueva para la pareja? La clave que tengan ahora dejará de servir.")) return;
+          const btn = $("new-key");
+          btn.disabled = true;
+          try {
+            const { clave } = await api({ action: "clave_pareja", slug, editKey });
+            $("key-val").textContent = clave;
+            $("key-out").hidden = false;
+            $("key-copy").onclick = () => copyText(clave, "Clave copiada");
+            $("key-copy-msg").onclick = () =>
+              copyText(`Este es el editor de su invitación: ${editorUrl()}\nSu clave de edición: ${clave}\nNo la compartan con nadie más.`, "Mensaje copiado");
+          } catch (err) {
+            toast(err.message);
+          }
+          btn.disabled = false;
+        };
+      }
       $("logout").onclick = () => {
         if (dirty && !confirm("Tienes cambios sin guardar. ¿Salir de todos modos?")) return;
         store.del(KEY_STORE);
