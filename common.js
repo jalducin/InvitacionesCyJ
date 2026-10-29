@@ -559,6 +559,7 @@ const INVITATION_CSS = `
 .inv.fx-slide .rv{transform:translateX(-44px)}
 .inv.fx-slide .sec:nth-child(even) .rv,.inv.fx-slide .gal-grid .rv:nth-child(even){transform:translateX(44px)}
 .inv .rv.shown{opacity:1;transform:none}
+.inv.waiting .in,.inv.waiting .particles i{animation-play-state:paused}
 .inv.fx-none .rv{opacity:1;transform:none;transition:none}
 .inv.no-in .in,.inv.fx-none .in{opacity:1;transform:none;animation:none}
 .inv .particles{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
