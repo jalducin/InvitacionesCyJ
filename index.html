@@ -14,13 +14,7 @@
     .state h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:1.9rem;margin:0 0 8px;color:#16182B}
     .spinner{width:34px;height:34px;border:3px solid #DCDDE8;border-top-color:#A8325A;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:14px}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .gate{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:24px;color:#fff;background:rgba(16,18,36,.72);backdrop-filter:blur(8px);font-family:"Figtree",system-ui,sans-serif;cursor:pointer}
-    .gate{transition:opacity .7s ease,backdrop-filter .7s ease}
     .inv.waiting .in,.inv.waiting .particles i{animation-play-state:paused}
-    .gate.leaving{opacity:0;backdrop-filter:blur(0);pointer-events:none}
-    .gate p{margin:0;letter-spacing:.24em;text-transform:uppercase;font-size:.72rem;opacity:.9}
-    .gate h2{font:600 2.6rem/1.05 "Cormorant Garamond",Georgia,serif;margin:4px 0 14px}
-    .gate button{padding:13px 28px;border-radius:999px;border:1.5px solid #fff;background:transparent;color:#fff;font:600 .9rem "Figtree",sans-serif;letter-spacing:.06em;cursor:pointer}
     .inv .music-btn{position:fixed;top:max(14px,env(safe-area-inset-top,0px));right:14px}
     .rsvp-slot form{display:flex;flex-direction:column;align-items:center;gap:14px;font-family:"Figtree",system-ui,sans-serif}
     .rsvp-slot .choices{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
@@ -40,7 +34,7 @@
 </head>
 <body>
   <div id="app"><div class="state"><div class="spinner"></div><p>Cargando tu invitación…</p></div></div>
-  <script src="common.js?v=20261029-2"></script>
+  <script src="common.js?v=20261029-3"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const style = document.createElement("style");
@@ -129,17 +123,10 @@
       mountRsvp(app.querySelector(".rsvp-slot"), g);
 
       // El navegador solo deja sonar música después de un toque.
-      const gate = document.createElement("div");
-      gate.className = "gate";
-      gate.innerHTML = `<p>Estás invitado a la boda de</p><h2>${esc(coupleShort(c))}</h2><button type="button">Toca para entrar</button>`;
-      gate.onclick = () => {
-        gate.onclick = null;
+      mountGate(c, () => {
         player.play();
-        gate.classList.add("leaving");
         inv.classList.remove("waiting");
-        setTimeout(() => gate.remove(), 700);
-      };
-      document.body.appendChild(gate);
+      });
     }
     main();
   </script>

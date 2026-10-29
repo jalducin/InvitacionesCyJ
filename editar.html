@@ -76,6 +76,7 @@
     .srow{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:10px}
     .srow .field{flex:0 0 130px}
     .srow .field.lab{flex:1 1 200px}
+    .srow{padding-bottom:12px;border-bottom:1px dashed var(--line)}
     .empty{color:var(--muted);padding:6px 0;margin:0}
 
     .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
@@ -170,7 +171,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261029-2"></script>
+  <script src="common.js?v=20261029-3"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -321,8 +322,27 @@
 
             <section class="panel" data-tab="evento" aria-labelledby="h-prog">
               <h2 id="h-prog">Programa del día</h2>
+              <p class="hint" style="margin:-6px 0 12px">Cada momento lleva su ícono. En “Automático” se elige por el nombre (Comida → cubiertos, Iglesia → iglesia, Baile → música…).</p>
               <div id="sched-list"></div>
               <button type="button" id="sched-add">Agregar momento</button>
+            </section>
+
+            <section class="panel" data-tab="evento" aria-labelledby="h-gifts">
+              <h2 id="h-gifts">Regalos</h2>
+              <div class="stack">
+                <label class="check"><input type="checkbox" id="giftsOn"> Mostrar la sección de regalos en la invitación</label>
+                <div id="gifts-fields" class="stack">
+                  <div class="field"><label for="giftsTitle">Título</label><input type="text" id="giftsTitle" data-key="giftsTitle" autocomplete="off"></div>
+                  <div class="field"><label for="giftsText">Mensaje</label><textarea id="giftsText" data-key="giftsText" rows="3" maxlength="400"></textarea></div>
+                  <p class="hint">Transferencia (opcional). Los datos no se ven de entrada: aparecen solo si el invitado toca “Prefiero hacer transferencia”, y ahí puede copiar el número.</p>
+                  <div class="row">
+                    <div class="field"><label for="giftBank">Banco</label><input type="text" id="giftBank" data-key="giftBank" autocomplete="off"></div>
+                    <div class="field"><label for="giftHolder">A nombre de</label><input type="text" id="giftHolder" data-key="giftHolder" autocomplete="off"></div>
+                  </div>
+                  <div class="field"><label for="giftAccount">CLABE, número de cuenta o de tarjeta</label><input type="text" id="giftAccount" data-key="giftAccount" autocomplete="off" inputmode="numeric" spellcheck="false"></div>
+                  <p class="hint">Cualquiera con un link de invitación podrá ver estos datos. Para recibir transferencias basta la CLABE; no hace falta compartir más.</p>
+                </div>
+              </div>
             </section>
 
             <section class="panel" data-tab="diseno" aria-labelledby="h-fondo">
@@ -386,6 +406,8 @@
                 <p class="hint">Cómo aparece cada parte de la invitación cuando el invitado baja. Los cambios se ven al momento en la vista previa.</p>
                 <div class="field"><span class="lbl">Animación al bajar</span><div class="seg wrap" id="fx" role="group" aria-label="Animación al bajar"></div></div>
                 <div class="field"><span class="lbl">Velocidad</span><div class="seg" id="fxSpeed" role="group" aria-label="Velocidad de la animación"></div></div>
+                <div class="field"><span class="lbl">Pantalla de entrada</span><div class="seg" id="intro" role="group" aria-label="Pantalla de entrada"></div></div>
+                <div><button type="button" id="intro-test">Ver la entrada</button></div>
                 <div class="field"><span class="lbl">Partículas en la portada</span><div class="seg wrap" id="particles" role="group" aria-label="Partículas en la portada"></div></div>
                 <label class="check"><input type="checkbox" id="coverIn"> Los nombres y la fecha de la portada aparecen uno por uno</label>
                 <label class="check"><input type="checkbox" id="parallax"> El fondo de la portada se mueve más lento al bajar (profundidad)</label>
@@ -541,7 +563,9 @@
       renderSwatches();
       $("img-remove").hidden = !safeUrl(S.image);
       syncMusic();
-      [["fx", S.fx], ["fxSpeed", S.fxSpeed], ["particles", S.particles]].forEach(([id, v]) =>
+      $("giftsOn").checked = !!S.giftsOn;
+      $("gifts-fields").hidden = !S.giftsOn;
+      [["fx", S.fx], ["fxSpeed", S.fxSpeed], ["particles", S.particles], ["intro", S.intro]].forEach(([id, v]) =>
         $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)))
       );
       $("coverIn").checked = !!S.coverIn;
@@ -635,7 +659,7 @@
       });
       $("sched-add").onclick = () => {
         const last = S.schedule[S.schedule.length - 1];
-        S.schedule.push({ from: last && last.to ? last.to : "", to: "", label: "" });
+        S.schedule.push({ from: last && last.to ? last.to : "", to: "", label: "", icon: "", place: "" });
         changed(); renderSchedule(); renderPreview();
         const inputs = root.querySelectorAll("#sched-list [data-s=label]");
         inputs[inputs.length - 1]?.focus();
@@ -800,7 +824,9 @@
       };
 
       // Efectos
-      [["fx", FX], ["fxSpeed", FX_SPEED], ["particles", PARTICLES]].forEach(([id, opts]) => {
+      $("giftsOn").onchange = (e) => { S.giftsOn = e.target.checked; changed(); syncControls(); renderPreview(); };
+      $("intro-test").onclick = () => mountGate(S);
+      [["fx", FX], ["fxSpeed", FX_SPEED], ["particles", PARTICLES], ["intro", INTROS]].forEach(([id, opts]) => {
         $(id).innerHTML = Object.entries(opts)
           .map(([v, l]) => `<button type="button" data-v="${v}">${esc(Array.isArray(l) ? l[0] : l)}</button>`)
           .join("");
@@ -852,7 +878,11 @@
           (s, i) => `<div class="srow" data-i="${i}">
             <div class="field"><label>Desde</label><input type="time" data-s="from" value="${esc(s.from)}"></div>
             <div class="field"><label>Hasta</label><input type="time" data-s="to" value="${esc(s.to)}"></div>
-            <div class="field lab"><label>Qué sucede</label><input type="text" data-s="label" value="${esc(s.label)}" autocomplete="off"></div>
+            <div class="field lab"><label>Qué sucede</label><input type="text" data-s="label" value="${esc(s.label)}" autocomplete="off" placeholder="Comida, Baile, Pastel…"></div>
+            <div class="field"><label>Ícono</label><select data-s="icon">${Object.entries(ICON_LABELS)
+              .map(([v, l]) => `<option value="${v}" ${(s.icon || "") === v ? "selected" : ""}>${esc(l)}</option>`)
+              .join("")}</select></div>
+            <div class="field lab"><label>Lugar (opcional)</label><input type="text" data-s="place" value="${esc(s.place || "")}" autocomplete="off"></div>
             <button type="button" class="quiet" data-act="sdel">Quitar</button></div>`
         )
         .join("");

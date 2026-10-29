@@ -55,6 +55,13 @@ const DEFAULT_CONFIG = {
   p1b: "",
   p2a: "",
   p2b: "",
+  // Regalos: se muestran solo si giftsOn. Los datos de transferencia quedan tras un botón.
+  giftsOn: false,
+  giftsTitle: "Lluvia de sobres",
+  giftsText: "Tu presencia es nuestro mejor regalo. Si además deseas tener un detalle con nosotros, el día de la boda habrá una lluvia de sobres.",
+  giftBank: "",
+  giftHolder: "",
+  giftAccount: "",
   schedule: [],
   bgKind: "preset",
   preset: "jardin",
@@ -74,17 +81,108 @@ const DEFAULT_CONFIG = {
   fxSpeed: "normal", // "lento", "normal" o "rapido"
   coverIn: true, // nombres y fecha de la portada aparecen uno por uno
   parallax: true, // el fondo de la portada se mueve más lento al bajar
-  particles: "none", // "none", "petalos", "corazones" o "destellos"
+  particles: "none", // "none", "petalos", "corazones", "destellos" o "sobres"
+  intro: "sobre", // pantalla de entrada: "sobre" (con iniciales) o "simple"
 };
+
+// ---------- Íconos del programa ----------
+const ICON_PATHS = {
+  reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  anillos: '<circle cx="9" cy="14" r="5"/><circle cx="15" cy="14" r="5"/><path d="M10 5l2-2 2 2-2 2z"/>',
+  civil: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  iglesia: '<path d="M12 2v4M10 4h4M6 22V11l6-5 6 5v11M10 22v-5h4v5M3 22h18"/>',
+  copa: '<path d="M8 3h8v4a4 4 0 0 1-8 0z"/><path d="M12 11v8M8 21h8"/>',
+  cubiertos: '<path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11"/><path d="M17 3c-2.5 2-2.5 7 0 8v10"/>',
+  musica: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  pastel: '<path d="M4 21h16M5 21v-7h14v7M7 14v-3h10v3M12 11V8"/><circle cx="12" cy="6" r="1"/>',
+  camara: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 7l2-3h4l2 3"/>',
+  sobre: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  corazon: '<path d="M12 20s-7-4.4-9-8.6A5 5 0 0 1 12 7a5 5 0 0 1 9 4.4C19 15.6 12 20 12 20z"/>',
+};
+const ICON_LABELS = {
+  "": "Automático",
+  reloj: "Reloj",
+  anillos: "Anillos",
+  civil: "Firma civil",
+  iglesia: "Iglesia",
+  copa: "Copa / recepción",
+  cubiertos: "Comida / cena",
+  musica: "Música / baile",
+  pastel: "Pastel",
+  camara: "Fotos",
+  corazon: "Corazón",
+};
+
+// Si no eligieron ícono, se adivina por el nombre del momento.
+function guessIcon(label) {
+  const t = String(label || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (/civil|firma/.test(t)) return "civil";
+  if (/iglesia|misa|religios|templo|parroquia/.test(t)) return "iglesia";
+  if (/ceremonia|votos|boda|anillo/.test(t)) return "anillos";
+  if (/recepcion|coctel|brindis|bienvenida/.test(t)) return "copa";
+  if (/cena|comida|banquete|desayuno|almuerzo|taquiza|botana/.test(t)) return "cubiertos";
+  if (/baile|fiesta|dj|vals|musica|grupo|mariachi/.test(t)) return "musica";
+  if (/pastel|postre/.test(t)) return "pastel";
+  if (/foto|sesion/.test(t)) return "camara";
+  return "reloj";
+}
+
+function iconSvg(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.reloj}</svg>`;
+}
+
+// ---------- Entrada ----------
+const INTROS = { sobre: "Sobre con iniciales", simple: "Sencilla" };
+
+function initials(c) {
+  const a = String(c.n1 || "").trim().charAt(0).toUpperCase();
+  const b = String(c.n2 || "").trim().charAt(0).toUpperCase();
+  return [a, b].filter(Boolean).join(" & ") || "♥";
+}
+
+// Muestra la pantalla de entrada sobre toda la página. `onOpen` corre al tocar
+// (ahí empieza la música y la animación de la portada).
+function mountGate(c, onOpen) {
+  c = normalizeConfig(c);
+  const gate = document.createElement("div");
+  gate.className = "gate" + (c.intro === "sobre" ? " gate-env" : "");
+  if (c.intro === "sobre") {
+    gate.innerHTML = `
+      <p class="gate-k">Estás invitado a la boda de</p>
+      <h2 class="gate-names">${esc(coupleShort(c))}</h2>
+      <div class="env" role="button" tabindex="0" aria-label="Abrir la invitación">
+        <div class="env-back"></div>
+        <div class="env-letter"><span>${esc(initials(c))}</span><small>Nos casamos</small></div>
+        <div class="env-pocket"></div>
+        <div class="env-flap"></div>
+        <div class="env-seal">${esc(initials(c))}</div>
+      </div>
+      <p class="gate-tap">Toca el sello para abrir</p>`;
+  } else {
+    gate.innerHTML = `<p class="gate-k">Estás invitado a la boda de</p><h2 class="gate-names">${esc(coupleShort(c))}</h2><button type="button" class="gate-btn">Toca para entrar</button>`;
+  }
+  const open = () => {
+    if (gate.classList.contains("opening")) return;
+    gate.classList.add("opening");
+    const slow = c.intro === "sobre" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (onOpen) setTimeout(onOpen, slow ? 1500 : 0);
+    setTimeout(() => gate.classList.add("leaving"), slow ? 1400 : 0);
+    setTimeout(() => gate.remove(), slow ? 2200 : 800);
+  };
+  gate.addEventListener("click", open);
+  gate.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && open());
+  document.body.appendChild(gate);
+  return gate;
+}
 
 // Opciones de efectos que ofrece el editor.
 const FX = { fade: "Aparecer suave", zoom: "Acercar", slide: "Deslizar de lado", none: "Sin animación" };
 const FX_SPEED = { lento: ["Lento", 1.4], normal: ["Normal", 0.9], rapido: ["Rápido", 0.5] };
-const PARTICLES = { none: "Ninguna", petalos: "Pétalos", corazones: "Corazones", destellos: "Destellos" };
+const PARTICLES = { none: "Ninguna", petalos: "Pétalos", corazones: "Corazones", destellos: "Destellos", sobres: "Lluvia de sobres" };
 
 function particlesHtml(kind) {
   if (kind === "none") return "";
-  const ch = kind === "corazones" ? "♥" : kind === "destellos" ? "✦" : "";
+  const ch = kind === "corazones" ? "♥" : kind === "destellos" ? "✦" : kind === "sobres" ? "✉" : "";
   let out = "";
   for (let i = 0; i < 16; i++) {
     // Valores repartidos pero fijos, para que la portada se vea igual en cada carga.
@@ -104,6 +202,7 @@ function normalizeConfig(c) {
   if (!FX[c.fx]) c.fx = "fade";
   if (!FX_SPEED[c.fxSpeed]) c.fxSpeed = "normal";
   if (!PARTICLES[c.particles]) c.particles = "none";
+  if (!INTROS[c.intro]) c.intro = "sobre";
   return c;
 }
 
@@ -287,7 +386,14 @@ function renderInvitation(c, guest) {
         <ol class="timeline">${sched
           .map(
             (s, i) =>
-              `<li class="rv" style="--d:${(i * 0.12).toFixed(2)}s"><span class="dot"></span><b>${esc(timeRange(s.from, s.to))}</b><span>${esc(s.label || "")}</span></li>`
+              `<li class="rv" style="--d:${(i * 0.12).toFixed(2)}s">
+            <span class="t-icon">${iconSvg(ICON_PATHS[s.icon] ? s.icon : guessIcon(s.label))}</span>
+            <div class="t-card">
+              ${s.from || s.to ? `<span class="t-time">${iconSvg("reloj")}${esc(timeRange(s.from, s.to))}</span>` : ""}
+              <p class="t-title">${esc(s.label || "")}</p>
+              ${s.place ? `<p class="t-place">${esc(s.place)}</p>` : ""}
+            </div>
+          </li>`
           )
           .join("")}</ol>
       </section>`
@@ -304,6 +410,28 @@ function renderInvitation(c, guest) {
               `<button type="button" class="rv zoom" style="--d:${((i % 3) * 0.1).toFixed(2)}s" data-i="${i}" aria-label="Ampliar foto ${i + 1}"><img src="${esc(u)}" alt="" loading="lazy"></button>`
           )
           .join("")}</div>
+      </section>`
+          : ""
+      }
+
+      ${
+        c.giftsOn
+          ? `<section class="sec gifts">
+        <div class="g-icon rv">${iconSvg("sobre")}</div>
+        <h3 class="g-title rv">${esc(c.giftsTitle || "Lluvia de sobres")}</h3>
+        ${ornament}
+        ${c.giftsText ? `<p class="g-text rv">${esc(c.giftsText)}</p>` : ""}
+        ${
+          String(c.giftAccount || "").trim()
+            ? `<button type="button" class="g-toggle rv" aria-expanded="false">Prefiero hacer transferencia</button>
+        <div class="g-bank" hidden>
+          ${c.giftBank ? `<p><span>Banco</span>${esc(c.giftBank)}</p>` : ""}
+          ${c.giftHolder ? `<p><span>A nombre de</span>${esc(c.giftHolder)}</p>` : ""}
+          <p><span>Cuenta / CLABE / tarjeta</span><b class="g-acc">${esc(String(c.giftAccount).trim())}</b></p>
+          <button type="button" class="g-copy">Copiar número</button>
+        </div>`
+            : ""
+        }
       </section>`
           : ""
       }
@@ -370,6 +498,31 @@ function wireInvitation(root, c, player) {
     root._scroller = scroller;
     scroller.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
+  }
+
+  const gt = root.querySelector(".g-toggle");
+  if (gt) {
+    const box = root.querySelector(".g-bank");
+    gt.addEventListener("click", () => {
+      box.hidden = !box.hidden;
+      gt.setAttribute("aria-expanded", String(!box.hidden));
+    });
+    const cp = root.querySelector(".g-copy");
+    cp.addEventListener("click", async () => {
+      const num = String(c.giftAccount || "").replace(/\s+/g, "");
+      try {
+        await navigator.clipboard.writeText(num);
+      } catch {
+        const ta = document.createElement("textarea");
+        ta.value = num;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      cp.textContent = "¡Copiado!";
+      setTimeout(() => (cp.textContent = "Copiar número"), 1800);
+    });
   }
 
   const mb = root.querySelector(".music-btn");
@@ -535,18 +688,34 @@ const INVITATION_CSS = `
 .inv .cd div{min-width:66px;padding:12px 6px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .inv .cd b{display:block;font:600 30px/1 'Cormorant Garamond',Georgia,serif;font-variant-numeric:tabular-nums}
 .inv .cd span{display:block;margin-top:6px;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--paper-muted)}
-.inv .timeline{list-style:none;margin:0 auto;padding:0 0 0 22px;max-width:320px;text-align:left;border-left:1px solid var(--line)}
-.inv .timeline li{position:relative;padding:0 0 22px 14px;display:grid;gap:2px}
+.inv .timeline{list-style:none;margin:0 auto;padding:0;max-width:420px;text-align:left;position:relative}
+.inv .timeline::before{content:"";position:absolute;left:23px;top:24px;bottom:24px;width:1.5px;background:linear-gradient(var(--rose),color-mix(in srgb,var(--rose) 25%,transparent))}
+.inv .timeline li{position:relative;display:flex;gap:16px;align-items:flex-start;padding-bottom:16px}
 .inv .timeline li:last-child{padding-bottom:0}
-.inv .timeline .dot{position:absolute;left:-28px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--paper);border:2px solid var(--rose)}
-.inv .timeline b{font-size:13px;color:var(--paper-muted);font-weight:600}
-.inv .timeline span:last-child{font:600 21px/1.2 'Cormorant Garamond',Georgia,serif}
+.inv .t-icon{flex:0 0 48px;height:48px;border-radius:50%;background:#fff;border:1px solid var(--line);color:var(--rose);display:flex;align-items:center;justify-content:center;position:relative;z-index:1;box-shadow:0 2px 8px rgba(26,27,46,.06)}
+.inv .t-icon svg{width:22px;height:22px}
+.inv .t-card{flex:1;min-width:0;background:#F6F1EA;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.inv .t-time{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:#fff;border:1px solid var(--line);font:600 12px/1 'Figtree',sans-serif;color:var(--rose)}
+.inv .t-time svg{width:13px;height:13px}
+.inv .t-title{margin:10px 0 0;font:600 23px/1.15 'Cormorant Garamond',Georgia,serif}
+.inv .t-place{margin:4px 0 0;font-size:14px;color:var(--paper-muted)}
 .inv .gallery{padding-left:12px;padding-right:12px}
 .inv .gal-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;gap:6px}
 .inv .gal-grid button{padding:0;border:0;border-radius:6px;overflow:hidden;aspect-ratio:1;background:#eceae4;display:block;cursor:zoom-in}
 .inv .gal-grid button:nth-child(5n+1){grid-column:span 2;grid-row:span 2}
 .inv .gal-grid img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s ease}
 .inv .gal-grid button:hover img{transform:scale(1.05)}
+.inv .gifts .g-icon{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:#F3EDE3;color:var(--rose);display:flex;align-items:center;justify-content:center}
+.inv .gifts .g-icon svg{width:28px;height:28px}
+.inv .gifts .g-title{margin:0 0 16px;font:600 clamp(26px,7vw,32px)/1.15 'Cormorant Garamond',Georgia,serif}
+.inv .gifts .g-text{max-width:34ch;margin:0 auto;color:var(--paper-muted);font-size:16px;line-height:1.6}
+.inv .g-toggle{margin-top:20px;padding:11px 20px;border-radius:999px;border:1.5px solid var(--rose);background:transparent;color:var(--rose);font:600 13px/1 'Figtree',sans-serif;cursor:pointer}
+.inv .g-bank{max-width:340px;margin:16px auto 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fff;text-align:left;display:grid;gap:10px}
+.inv .g-bank[hidden]{display:none}
+.inv .g-bank p{margin:0;display:grid;gap:2px;font-size:15px}
+.inv .g-bank span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-muted)}
+.inv .g-acc{font:600 18px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.04em;overflow-wrap:anywhere}
+.inv .g-copy{justify-self:start;padding:10px 18px;border-radius:999px;border:0;background:var(--rose);color:#fff;font:600 13px/1 'Figtree',sans-serif;cursor:pointer}
 .inv .rsvp-slot:empty{display:none}
 .inv .rsvp-slot h2{font:600 30px/1.1 'Cormorant Garamond',Georgia,serif;letter-spacing:0;text-transform:none;color:var(--paper-ink);margin:0 0 18px}
 .inv .song{margin:0;padding:0 24px 8px;text-align:center;font-size:12px;letter-spacing:.06em;color:var(--paper-muted)}
@@ -570,6 +739,7 @@ const INVITATION_CSS = `
 .inv .particles.petalos i{width:var(--sz);height:calc(var(--sz) * .7);background:linear-gradient(135deg,#FBD3DE,#EE9FB4);border-radius:150% 0 150% 0;opacity:.85}
 .inv .particles.corazones i{color:#F4A7BB}
 .inv .particles.destellos i{color:#FFE7A8;text-shadow:0 0 8px rgba(255,231,168,.8)}
+.inv .particles.sobres i{color:#F3E2B8;font-size:calc(var(--sz) + 8px);text-shadow:0 2px 6px rgba(0,0,0,.25)}
 @keyframes inv-fall{0%{top:-8%;transform:translateX(0) rotate(0)}100%{top:108%;transform:translateX(var(--dx)) rotate(320deg)}}
 @media (prefers-reduced-motion: reduce){
   .inv .particles{display:none}
@@ -577,6 +747,30 @@ const INVITATION_CSS = `
   .inv .scroll-hint i::after{animation:none}
 }
 
+.gate{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;padding:24px;color:#fff;background:rgba(16,18,36,.74);backdrop-filter:blur(8px);font-family:'Figtree',system-ui,sans-serif;cursor:pointer;transition:opacity .8s ease,backdrop-filter .8s ease}
+.gate.leaving{opacity:0;backdrop-filter:blur(0);pointer-events:none}
+.gate .gate-k{margin:0;letter-spacing:.24em;text-transform:uppercase;font-size:.72rem;opacity:.9}
+.gate .gate-names{font:600 2.4rem/1.05 'Cormorant Garamond',Georgia,serif;margin:4px 0 18px}
+.gate .gate-btn{padding:13px 28px;border-radius:999px;border:1.5px solid #fff;background:transparent;color:#fff;font:600 .9rem 'Figtree',sans-serif;letter-spacing:.06em;cursor:pointer}
+.gate .gate-tap{margin:18px 0 0;font-size:.85rem;letter-spacing:.08em;opacity:.85;animation:gate-pulse 1.8s ease-in-out infinite}
+@keyframes gate-pulse{50%{opacity:.45}}
+.gate-env .env{position:relative;width:min(300px,78vw);aspect-ratio:3/2;perspective:900px;outline:none}
+.env-back,.env-pocket,.env-flap{position:absolute;inset:0;border-radius:6px}
+.env-back{background:linear-gradient(160deg,#EFE6D6,#E2D5BE);box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.env-letter{position:absolute;left:7%;right:7%;top:8%;bottom:8%;background:#FFFDF8;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#7A5A2B;box-shadow:0 2px 8px rgba(0,0,0,.12);transition:transform 1s cubic-bezier(.3,.7,.2,1) .45s;z-index:1}
+.env-letter span{font:600 30px/1 'Cormorant Garamond',Georgia,serif}
+.env-letter small{font-size:10px;letter-spacing:.3em;text-transform:uppercase}
+.env-pocket{z-index:2;background:linear-gradient(160deg,#F4ECDD,#E8DCC6);clip-path:polygon(0 0,50% 52%,100% 0,100% 100%,0 100%)}
+.env-flap{z-index:3;background:linear-gradient(180deg,#E6D8BF,#D9C7A6);clip-path:polygon(0 0,100% 0,50% 58%);transform-origin:top center;transition:transform .7s cubic-bezier(.4,.1,.3,1),z-index 0s .35s}
+.env-seal{position:absolute;z-index:4;left:50%;top:58%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 30%,#C24A70,#8E2346 70%);color:#FBE9EF;font:600 17px/1 'Cormorant Garamond',Georgia,serif;letter-spacing:.02em;box-shadow:0 3px 10px rgba(0,0,0,.35),inset 0 0 0 3px rgba(255,255,255,.12);transition:transform .45s ease,opacity .45s ease;animation:seal-bob 2.4s ease-in-out infinite}
+@keyframes seal-bob{50%{transform:scale(1.06)}}
+.gate-env.opening .env-seal{animation:none;transform:scale(.4);opacity:0}
+.gate-env.opening .env-flap{transform:rotateX(180deg);z-index:0}
+.gate-env.opening .env-letter{transform:translateY(-62%)}
+.gate-env.opening .gate-tap{opacity:0;animation:none}
+.gate .gate-k,.gate .gate-names{transition:opacity .4s ease}
+.gate-env.opening .gate-k,.gate-env.opening .gate-names{opacity:0}
+@media (prefers-reduced-motion: reduce){.gate .gate-tap,.env-seal{animation:none}.env-letter,.env-flap{transition:none}}
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(8,9,20,.92);display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;animation:inv-fade .25s ease}
 @keyframes inv-fade{from{opacity:0}}
 .lightbox img{max-width:94vw;max-height:88vh;border-radius:8px;object-fit:contain}
