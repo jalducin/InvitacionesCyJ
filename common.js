@@ -50,6 +50,11 @@ const DEFAULT_CONFIG = {
   city: "",
   mapUrl: "",
   note: "",
+  // Papás de cada uno: p1a/p1b de Nombre 1, p2a/p2b de Nombre 2
+  p1a: "",
+  p1b: "",
+  p2a: "",
+  p2b: "",
   schedule: [],
   bgKind: "preset",
   preset: "jardin",
@@ -81,12 +86,14 @@ const esc = (s) =>
 const safeUrl = (u) => (typeof u === "string" && /^https:\/\//i.test(u.trim()) ? u.trim() : "");
 const plural = (n) => (n === 1 ? "1 pase" : `${n} pases`);
 
+// "José de Jesús López" → "José de Jesús"; "Cynthia Paola" → "Cynthia"
+function shortName(full) {
+  const p = String(full || "").trim().split(/\s+/);
+  return p[1] && /^(de|del)$/i.test(p[1]) && p[2] ? p.slice(0, 3).join(" ") : p[0] || "";
+}
+
 function coupleShort(c) {
-  // "José de Jesús López" → "José de Jesús"; "Cynthia Paola" → "Cynthia"
-  const short = (full) => {
-    const p = String(full || "").trim().split(/\s+/);
-    return p[1] && /^(de|del)$/i.test(p[1]) && p[2] ? p.slice(0, 3).join(" ") : p[0] || "";
-  };
+  const short = shortName;
   return [short(c.n1), short(c.n2)].filter(Boolean).join(" y ");
 }
 
@@ -192,6 +199,28 @@ function renderInvitation(c, guest) {
           ? `<section class="sec">
         ${ornament}
         <p class="quote rv">${esc(c.note)}</p>
+      </section>`
+          : ""
+      }
+
+      ${
+        [c.p1a, c.p1b, c.p2a, c.p2b].some((x) => String(x || "").trim())
+          ? `<section class="sec parents">
+        <h2 class="rv">Con la bendición de nuestros papás</h2>
+        <div class="par-grid">
+          ${[
+            [c.n1, c.p1a, c.p1b],
+            [c.n2, c.p2a, c.p2b],
+          ]
+            .filter(([, a, b]) => String(a || "").trim() || String(b || "").trim())
+            .map(
+              ([who, a, b], i) => `<div class="rv" style="--d:${i * 0.15}s">
+            <p class="par-of">Papás de ${esc(shortName(who) || "la pareja")}</p>
+            ${[a, b].filter((x) => String(x || "").trim()).map((x) => `<p class="par-name">${esc(String(x).trim())}</p>`).join("")}
+          </div>`
+            )
+            .join("")}
+        </div>
       </section>`
           : ""
       }
@@ -464,6 +493,9 @@ const INVITATION_CSS = `
 .inv .orn{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--rose);font-size:14px;margin-bottom:18px}
 .inv .orn span{width:48px;height:1px;background:currentColor;opacity:.5}
 .inv .quote{font:italic 500 clamp(22px,6vw,28px)/1.35 'Cormorant Garamond',Georgia,serif;max-width:24ch;margin:0 auto}
+.inv .par-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:26px;max-width:480px;margin:0 auto}
+.inv .par-of{margin:0 0 8px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--paper-muted)}
+.inv .par-name{margin:0;font:600 21px/1.3 'Cormorant Garamond',Georgia,serif}
 .inv .big{font:600 clamp(26px,7vw,32px)/1.15 'Cormorant Garamond',Georgia,serif;margin:0}
 .inv .sub{color:var(--paper-muted);margin:8px 0 0;font-size:15px}
 .inv .btn{display:inline-block;margin-top:20px;padding:12px 24px;border-radius:999px;background:var(--rose);color:#fff;text-decoration:none;font:600 12px/1 'Figtree',sans-serif;letter-spacing:.1em;text-transform:uppercase}

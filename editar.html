@@ -255,6 +255,21 @@
               </div>
             </section>
 
+            <section class="panel" aria-labelledby="h-padres">
+              <h2 id="h-padres">Nuestros papás</h2>
+              <div class="stack">
+                <p class="hint">Aparecen en la invitación bajo “Con la bendición de nuestros papás”. Deja vacío lo que no quieran mostrar.</p>
+                <div class="row">
+                  <div class="field"><label for="p1a" data-par="1">Papá o mamá de Nombre 1</label><input type="text" id="p1a" data-key="p1a" autocomplete="off"></div>
+                  <div class="field"><label for="p1b" data-par="1">Papá o mamá de Nombre 1</label><input type="text" id="p1b" data-key="p1b" autocomplete="off"></div>
+                </div>
+                <div class="row">
+                  <div class="field"><label for="p2a" data-par="2">Papá o mamá de Nombre 2</label><input type="text" id="p2a" data-key="p2a" autocomplete="off"></div>
+                  <div class="field"><label for="p2b" data-par="2">Papá o mamá de Nombre 2</label><input type="text" id="p2b" data-key="p2b" autocomplete="off"></div>
+                </div>
+              </div>
+            </section>
+
             <section class="panel" aria-labelledby="h-prog">
               <h2 id="h-prog">Programa del día</h2>
               <div id="sched-list"></div>
@@ -392,8 +407,16 @@
     }
 
     // ---------- Controles ----------
+    function parentLabels() {
+      root.querySelectorAll("[data-par]").forEach((l) => {
+        const who = shortName(l.dataset.par === "1" ? S.n1 : S.n2);
+        l.textContent = `Papá o mamá de ${who || "Nombre " + l.dataset.par}`;
+      });
+    }
+
     function syncControls() {
       $("h-title").textContent = coupleShort(S) || slug;
+      parentLabels();
       root.querySelectorAll("[data-key]").forEach((el) => (el.value = S[el.dataset.key] ?? ""));
       $("details").checked = !!S.details;
       $("addr").textContent = inviteUrl("…").replace(/%E2%80%A6$/, "…");
@@ -439,7 +462,10 @@
         el.addEventListener("input", () => {
           S[el.dataset.key] = el.value;
           changed();
-          if (el.dataset.key === "n1" || el.dataset.key === "n2") $("h-title").textContent = coupleShort(S) || slug;
+          if (el.dataset.key === "n1" || el.dataset.key === "n2") {
+            $("h-title").textContent = coupleShort(S) || slug;
+            parentLabels();
+          }
           renderPreview();
           updateMessages();
         })
