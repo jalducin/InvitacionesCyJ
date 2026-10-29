@@ -117,6 +117,8 @@
     .chips button[aria-pressed=true] span{color:inherit;opacity:.8}
     .gview{margin-bottom:14px}
     .gview .hint{margin-top:10px}
+    .gtotal{font-size:15px;margin-bottom:12px}
+    .gtotal b{font-size:22px;margin-right:4px}
     .gtools{display:flex;flex-wrap:wrap;gap:8px}
     .guest.grow{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
     .guest.grow .field.name{flex:2 1 200px}
@@ -410,6 +412,8 @@
             <button type="button" data-gview="lista">Lista de invitados</button>
             <button type="button" data-gview="enviar">Enviar invitaciones</button>
             <button type="button" data-gview="respuestas">Respuestas</button>
+            <button type="button" data-gview="confirmados">Confirmados</button>
+            <button type="button" data-gview="noasisten">No asistirán</button>
           </nav>
 
           <div class="gbar">
@@ -441,6 +445,21 @@
             <div class="gtools">
               <button type="button" class="primary" id="refresh">Actualizar respuestas</button>
               <button type="button" id="csv">Descargar lista (Excel)</button>
+            </div>
+          </div>
+
+          <div class="gview" data-gv="confirmados">
+            <div class="gtotal" id="tot-si"></div>
+            <div class="gtools">
+              <button type="button" id="refresh-si">Actualizar respuestas</button>
+              <button type="button" id="copy-si">Copiar lista de confirmados</button>
+            </div>
+          </div>
+
+          <div class="gview" data-gv="noasisten">
+            <div class="gtotal" id="tot-no"></div>
+            <div class="gtools">
+              <button type="button" id="refresh-no">Actualizar respuestas</button>
             </div>
           </div>
 
@@ -764,6 +783,14 @@
         toast(`${n} ${n === 1 ? "invitado agregado" : "invitados agregados"}. Guarda para activar sus links.`);
       };
       $("refresh").onclick = refreshAnswers;
+      $("refresh-si").onclick = refreshAnswers;
+      $("refresh-no").onclick = refreshAnswers;
+      $("copy-si").onclick = () => {
+        const list = visibleGuests();
+        if (!list.length) return toast("Todavía no hay confirmados");
+        const people = list.reduce((n, g) => n + (g.rsvp_pases || 0), 0);
+        copyText(list.map((g) => `${g.nombre} — ${plural(g.rsvp_pases || 0).replace("pase", "persona")}`).join("\n") + `\n\nTotal: ${people} ${people === 1 ? "persona" : "personas"}`, "Lista de confirmados copiada");
+      };
       $("csv").onclick = downloadCsv;
       $("copy-all").onclick = () => {
         const list = visibleGuests().filter((g) => g.nombre.trim());
@@ -905,7 +932,8 @@
     }
 
     // ---------- Invitados ----------
-    let gview = ["lista", "enviar", "respuestas"].includes(store.get("guest-view")) ? store.get("guest-view") : "lista";
+    const GVIEWS = ["lista", "enviar", "respuestas", "confirmados", "noasisten"];
+    let gview = GVIEWS.includes(store.get("guest-view")) ? store.get("guest-view") : "lista";
     let gfilter = "todos";
     let gq = "";
 
@@ -931,9 +959,11 @@
     }
 
     const fold = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    // Confirmados y No asistirán tienen su propio filtro fijo; las demás vistas usan los chips.
     function visibleGuests() {
       const q = fold(gq).trim();
-      return guests.filter((g) => STATES[gfilter][1](g) && (!q || fold(g.nombre).includes(q)));
+      const f = gview === "confirmados" ? STATES.si[1] : gview === "noasisten" ? STATES.no[1] : STATES[gfilter][1];
+      return guests.filter((g) => f(g) && (!q || fold(g.nombre).includes(q)));
     }
 
     function renderGuests() {
@@ -945,12 +975,25 @@
         .join("");
       if (gfilter === "nuevo" && !guests.some((g) => g.nuevo)) gfilter = "todos";
 
+      $("gfilters").hidden = gview === "confirmados" || gview === "noasisten";
+      const si = guests.filter(STATES.si[1]), no = guests.filter(STATES.no[1]);
+      const people = si.reduce((n, g) => n + (g.rsvp_pases || 0), 0);
+      const assigned = si.reduce((n, g) => n + (Number(g.pases) || 0), 0);
+      $("tot-si").innerHTML = `<b>${people}</b> ${people === 1 ? "persona confirmada" : "personas confirmadas"} en ${si.length} ${si.length === 1 ? "invitación" : "invitaciones"}` +
+        (assigned > people ? ` <span class="hint">· ${assigned - people} de sus pases no se usarán</span>` : "");
+      const freed = no.reduce((n, g) => n + (Number(g.pases) || 0), 0);
+      $("tot-no").innerHTML = `<b>${no.length}</b> ${no.length === 1 ? "invitación dijo" : "invitaciones dijeron"} que no asistirán <span class="hint">· ${plural(freed)} liberados</span>`;
+
       const list = visibleGuests();
       const box = $("guests");
       if (!guests.length) box.innerHTML = `<p class="empty">Aún no hay invitados. Toca “Agregar invitado” o “Pegar lista”.</p>`;
+      else if (!list.length && gview === "confirmados") box.innerHTML = `<p class="empty">${gq ? "Nadie coincide con la búsqueda." : "Todavía nadie ha confirmado."}</p>`;
+      else if (!list.length && gview === "noasisten") box.innerHTML = `<p class="empty">${gq ? "Nadie coincide con la búsqueda." : "Nadie ha dicho que no asistirá."}</p>`;
       else if (!list.length) box.innerHTML = `<p class="empty">Nadie coincide con la búsqueda o el filtro.</p>`;
       else if (gview === "lista") box.innerHTML = list.map(listRow).join("");
       else if (gview === "enviar") box.innerHTML = list.map(sendRow).join("");
+      else if (gview === "confirmados") box.innerHTML = yesTable(list);
+      else if (gview === "noasisten") box.innerHTML = noTable(list);
       else box.innerHTML = answersTable(list);
       updateMessages();
     }
@@ -992,6 +1035,27 @@
           .join("")}</tbody></table></div>`;
     }
 
+    const whenShort = (iso) => (iso ? new Date(iso).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—");
+
+    function yesTable(list) {
+      return `<div class="table-wrap"><table class="answers">
+        <thead><tr><th>Invitado</th><th>Personas</th><th>Pases asignados</th><th>Confirmó</th></tr></thead>
+        <tbody>${list
+          .map((g) => `<tr class="guest" data-token="${esc(g.token)}"><td>${esc(g.nombre)}</td><td><b>${g.rsvp_pases}</b></td><td>${g.pases}</td><td>${whenShort(g.rsvp_at)}</td></tr>`)
+          .join("")}</tbody></table></div>`;
+    }
+
+    function noTable(list) {
+      return `<div class="table-wrap"><table class="answers">
+        <thead><tr><th>Invitado</th><th>Pases liberados</th><th>Respondió</th><th></th></tr></thead>
+        <tbody>${list
+          .map(
+            (g) => `<tr class="guest" data-token="${esc(g.token)}"><td>${esc(g.nombre)}</td><td>${g.pases}</td><td>${whenShort(g.rsvp_at)}</td>
+            <td><button type="button" class="quiet" data-act="regen" title="Darle un link nuevo para que vuelva a responder">Dejar responder de nuevo</button></td></tr>`
+          )
+          .join("")}</tbody></table></div>`;
+    }
+
     function messageFor(g) {
       return buildMessage(S, g, inviteUrl(g.token));
     }
@@ -1019,8 +1083,8 @@
     }
 
     // Trae las respuestas nuevas sin tocar lo que se esté editando (nombres, pases, invitados sin guardar).
-    async function refreshAnswers() {
-      const btn = $("refresh");
+    async function refreshAnswers(e) {
+      const btn = e?.currentTarget || $("refresh");
       btn.disabled = true;
       try {
         const d = await api({ action: "load", slug, editKey });
