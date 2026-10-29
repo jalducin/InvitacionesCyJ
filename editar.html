@@ -76,6 +76,7 @@
     .srow{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:10px}
     .srow .field{flex:0 0 130px}
     .srow .field.lab{flex:1 1 200px}
+    .venue-thumb{width:88px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
     .srow{padding-bottom:12px;border-bottom:1px dashed var(--line)}
     .empty{color:var(--muted);padding:6px 0;margin:0}
 
@@ -171,7 +172,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261029-3"></script>
+  <script src="common.js?v=20261029-4"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -299,6 +300,17 @@
                   <div class="field"><label for="city">Ciudad</label><input type="text" id="city" data-key="city" autocomplete="off"></div>
                 </div>
                 <div class="field"><label for="mapUrl">Enlace de la ubicación (Google Maps)</label><input type="url" id="mapUrl" data-key="mapUrl" autocomplete="off" spellcheck="false" placeholder="https://maps.app.goo.gl/…"></div>
+                <div class="field"><label for="address">Dirección del salón</label><input type="text" id="address" data-key="address" autocomplete="off" placeholder="Calle, número, colonia, código postal, ciudad"></div>
+                <div class="field"><span class="lbl">Foto del salón (fachada)</span>
+                  <div class="swatches">
+                    <img id="venue-thumb" class="venue-thumb" alt="Foto del salón" hidden>
+                    <label class="upload"><input type="file" id="venue-file" accept="image/jpeg,image/png,image/webp">Subir foto del salón</label>
+                    <button type="button" class="quiet" id="venue-remove">Quitar foto</button>
+                  </div>
+                  <p class="hint" id="venue-msg">Aparece arriba de la ubicación, para que los invitados reconozcan el lugar.</p>
+                </div>
+                <label class="check"><input type="checkbox" id="parking"> El salón tiene estacionamiento</label>
+                <label class="check"><input type="checkbox" id="showMap"> Mostrar el mapa dentro de la invitación</label>
                 <div class="field"><label for="note">Frase de la invitación</label><textarea id="note" data-key="note" rows="2" maxlength="300"></textarea></div>
                 <div class="field"><span class="lbl">Dirección de la invitación</span><div class="addr" id="addr"></div>
                   <p class="hint">Cada invitado recibe esta dirección con su código propio al final.</p></div>
@@ -325,6 +337,18 @@
               <p class="hint" style="margin:-6px 0 12px">Cada momento lleva su ícono. En “Automático” se elige por el nombre (Comida → cubiertos, Iglesia → iglesia, Baile → música…).</p>
               <div id="sched-list"></div>
               <button type="button" id="sched-add">Agregar momento</button>
+            </section>
+
+            <section class="panel" data-tab="evento" aria-labelledby="h-dress">
+              <h2 id="h-dress">Código de vestimenta</h2>
+              <div class="stack">
+                <label class="check"><input type="checkbox" id="dressOn"> Mostrar el código de vestimenta en la invitación</label>
+                <div id="dress-fields" class="stack">
+                  <div class="field"><label for="dressType">Tipo</label><input type="text" id="dressType" data-key="dressType" list="dress-opts" autocomplete="off">
+                    <datalist id="dress-opts"><option value="Formal"><option value="Etiqueta rigurosa"><option value="Cóctel"><option value="Casual elegante"><option value="Formal de playa"></datalist></div>
+                  <div class="field"><label for="dressText">Mensaje</label><textarea id="dressText" data-key="dressText" rows="3" maxlength="400"></textarea></div>
+                </div>
+              </div>
             </section>
 
             <section class="panel" data-tab="evento" aria-labelledby="h-gifts">
@@ -564,6 +588,14 @@
       $("img-remove").hidden = !safeUrl(S.image);
       syncMusic();
       $("giftsOn").checked = !!S.giftsOn;
+      $("dressOn").checked = !!S.dressOn;
+      $("dress-fields").hidden = !S.dressOn;
+      $("parking").checked = !!S.parking;
+      $("showMap").checked = !!S.showMap;
+      const vp = safeUrl(S.venuePhoto);
+      $("venue-thumb").hidden = !vp;
+      if (vp) $("venue-thumb").src = vp;
+      $("venue-remove").hidden = !vp;
       $("gifts-fields").hidden = !S.giftsOn;
       [["fx", S.fx], ["fxSpeed", S.fxSpeed], ["particles", S.particles], ["intro", S.intro]].forEach(([id, v]) =>
         $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)))
@@ -825,6 +857,24 @@
 
       // Efectos
       $("giftsOn").onchange = (e) => { S.giftsOn = e.target.checked; changed(); syncControls(); renderPreview(); };
+      ["dressOn", "parking", "showMap"].forEach((k) => ($(k).onchange = (e) => { S[k] = e.target.checked; changed(); syncControls(); renderPreview(); }));
+      $("venue-file").onchange = async (e) => {
+        const f = e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        const msg = $("venue-msg");
+        msg.className = "hint";
+        msg.textContent = "Subiendo foto…";
+        try {
+          S.venuePhoto = await uploadImage(f, 1600);
+          msg.textContent = "Listo. Así se verá en la sección de ubicación.";
+          changed(); syncControls(); renderPreview();
+        } catch (err) {
+          msg.className = "hint err";
+          msg.textContent = err.message;
+        }
+      };
+      $("venue-remove").onclick = () => { S.venuePhoto = null; changed(); syncControls(); renderPreview(); };
       $("intro-test").onclick = () => mountGate(S);
       [["fx", FX], ["fxSpeed", FX_SPEED], ["particles", PARTICLES], ["intro", INTROS]].forEach(([id, opts]) => {
         $(id).innerHTML = Object.entries(opts)

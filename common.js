@@ -56,6 +56,15 @@ const DEFAULT_CONFIG = {
   p2a: "",
   p2b: "",
   // Regalos: se muestran solo si giftsOn. Los datos de transferencia quedan tras un botón.
+  // Ubicación
+  venuePhoto: null, // foto de la fachada del salón
+  address: "",
+  parking: false,
+  showMap: true, // mapa de Google dentro de la invitación
+  // Código de vestimenta
+  dressOn: false,
+  dressType: "Formal",
+  dressText: "Nos encantaría verte elegante para esta ocasión especial. Te pedimos reservar el color blanco para la novia y el beige para el novio.",
   giftsOn: false,
   giftsTitle: "Lluvia de sobres",
   giftsText: "Tu presencia es nuestro mejor regalo. Si además deseas tener un detalle con nosotros, el día de la boda habrá una lluvia de sobres.",
@@ -96,6 +105,11 @@ const ICON_PATHS = {
   musica: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
   pastel: '<path d="M4 21h16M5 21v-7h14v7M7 14v-3h10v3M12 11V8"/><circle cx="12" cy="6" r="1"/>',
   camara: '<rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 7l2-3h4l2 3"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  coche: '<path d="M3 17v-4l2.5-6h13L21 13v4z"/><path d="M3 13h18"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/>',
+  traje: '<path d="M8 3l4 5 4-5 4 3-2 5h-2v10H8V11H6L4 6z"/><path d="M12 8v13M10 12h.01M10 16h.01"/>',
+  vestido: '<path d="M9 3h6l-1 6 5 12H5l5-12z"/><path d="M9.5 9h5"/>',
+  rama: '<path d="M12 22V9"/><path d="M12 15c-3.5 0-5.5-2.2-5.5-5.5 3.5 0 5.5 2.2 5.5 5.5zM12 12c3.5 0 5.5-2.2 5.5-5.5-3.5 0-5.5 2.2-5.5 5.5zM12 9c0-2.4 1-4.3 0-6-1 1.7 0 3.6 0 6z"/>',
   sobre: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
   corazon: '<path d="M12 20s-7-4.4-9-8.6A5 5 0 0 1 12 7a5 5 0 0 1 9 4.4C19 15.6 12 20 12 20z"/>',
 };
@@ -298,6 +312,11 @@ function renderInvitation(c, guest) {
   const map = safeUrl(c.mapUrl);
   const hasSong = c.songSrc === "demo" || (c.songSrc === "file" && safeUrl(c.songUrl));
   const ornament = `<div class="orn rv" aria-hidden="true"><span></span>✦<span></span></div>`;
+  // Encabezado de sección con la ramita encima, como en las invitaciones de referencia.
+  const head = (title, eyebrow) =>
+    `<div class="sprig rv" aria-hidden="true">${iconSvg("rama")}</div>${eyebrow ? `<p class="eyebrow rv">${esc(eyebrow)}</p>` : ""}<h3 class="sec-title rv">${esc(title)}</h3>${ornament}`;
+  const venuePhoto = safeUrl(c.venuePhoto);
+  const mapQuery = c.address || [c.venue, c.city].filter(Boolean).join(", ");
 
   return `
   <article class="inv fx-${c.fx}${c.coverIn ? "" : " no-in"}" style="--fxdur:${FX_SPEED[c.fxSpeed][1]}s">
@@ -334,20 +353,22 @@ function renderInvitation(c, guest) {
       ${
         [c.p1a, c.p1b, c.p2a, c.p2b].some((x) => String(x || "").trim())
           ? `<section class="sec parents">
-        <h2 class="rv">Con la bendición de nuestros papás</h2>
-        <div class="par-grid">
+        ${head("Con la bendición de")}
+        <p class="pill rv">${iconSvg("corazon")} Nuestros papás</p>
+        <div class="par-list">
           ${[
             [c.n1, c.p1a, c.p1b],
             [c.n2, c.p2a, c.p2b],
           ]
             .filter(([, a, b]) => String(a || "").trim() || String(b || "").trim())
             .map(
-              ([who, a, b], i) => `<div class="rv" style="--d:${i * 0.15}s">
+              ([who, a, b], i) => `<div class="par-card rv" style="--d:${i * 0.15}s">
             <p class="par-of">Papás de ${esc(shortName(who) || "la pareja")}</p>
             ${[a, b].filter((x) => String(x || "").trim()).map((x) => `<p class="par-name">${esc(String(x).trim())}</p>`).join("")}
+            <span class="par-line"></span>
           </div>`
             )
-            .join("")}
+            .join(`<div class="par-heart rv" aria-hidden="true">${iconSvg("corazon")}</div>`)}
         </div>
       </section>`
           : ""
@@ -370,11 +391,20 @@ function renderInvitation(c, guest) {
 
       ${
         c.venue || c.city || map
-          ? `<section class="sec">
-        <h2 class="rv">¿Dónde?</h2>
+          ? `<section class="sec place">
+        ${head("Ubicación")}
+        ${venuePhoto ? `<figure class="venue-photo rv zoom"><img src="${esc(venuePhoto)}" alt="Fachada de ${esc(c.venue || "el salón")}" loading="lazy"></figure>` : ""}
+        <div class="pin rv">${iconSvg("pin")}</div>
         ${c.venue ? `<p class="big rv">${esc(c.venue)}</p>` : ""}
-        ${c.city ? `<p class="sub rv">${esc(c.city)}</p>` : ""}
-        ${map ? `<a class="btn rv" href="${esc(map)}" target="_blank" rel="noopener noreferrer">Ver ubicación</a>` : ""}
+        ${c.time ? `<p class="t-time rv">${iconSvg("reloj")}${esc(c.time)} h</p>` : ""}
+        ${c.address || c.city ? `<p class="sub rv">${esc(c.address || c.city)}</p>` : ""}
+        ${c.parking ? `<p class="tagline rv">${iconSvg("coche")} Estacionamiento</p>` : ""}
+        ${
+          c.showMap && mapQuery
+            ? `<div class="map rv"><iframe title="Mapa de ${esc(c.venue || "la ubicación")}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed"></iframe></div>`
+            : ""
+        }
+        ${map ? `<a class="btn rv" href="${esc(map)}" target="_blank" rel="noopener noreferrer">Abrir en Maps</a>` : ""}
       </section>`
           : ""
       }
@@ -382,7 +412,7 @@ function renderInvitation(c, guest) {
       ${
         sched.length
           ? `<section class="sec">
-        <h2 class="rv">Programa</h2>
+        ${head("Itinerario")}
         <ol class="timeline">${sched
           .map(
             (s, i) =>
@@ -401,9 +431,23 @@ function renderInvitation(c, guest) {
       }
 
       ${
+        c.dressOn
+          ? `<section class="sec dress">
+        ${head("Código de vestimenta", "Etiqueta")}
+        <div class="dress-card rv zoom">
+          <div class="dress-icons">${iconSvg("traje")}${iconSvg("vestido")}</div>
+          <p class="dress-type">${esc(c.dressType || "Formal")}</p>
+          <span class="dress-orn" aria-hidden="true"><span></span>✦<span></span></span>
+        </div>
+        ${c.dressText ? `<p class="g-text rv">${esc(c.dressText)}</p>` : ""}
+      </section>`
+          : ""
+      }
+
+      ${
         photos.length
           ? `<section class="sec gallery">
-        <h2 class="rv">${esc(c.photosTitle || "Nuestra sesión de fotos")}</h2>
+        ${head(c.photosTitle || "Nuestra sesión de fotos")}
         <div class="gal-grid">${photos
           .map(
             (u, i) =>
@@ -678,6 +722,36 @@ const INVITATION_CSS = `
 .inv .orn{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--rose);font-size:14px;margin-bottom:18px}
 .inv .orn span{width:48px;height:1px;background:currentColor;opacity:.5}
 .inv .quote{font:italic 500 clamp(22px,6vw,28px)/1.35 'Cormorant Garamond',Georgia,serif;max-width:24ch;margin:0 auto}
+.inv .sprig{color:var(--rose);display:flex;justify-content:center;margin-bottom:8px}
+.inv .sprig svg{width:26px;height:26px}
+.inv .eyebrow{margin:0 0 8px;font:600 11px/1 'Figtree',sans-serif;letter-spacing:.3em;text-transform:uppercase;color:var(--rose)}
+.inv .sec-title{margin:0 0 14px;font:500 clamp(28px,7.5vw,34px)/1.15 'Cormorant Garamond',Georgia,serif}
+.inv .pill{display:inline-flex;align-items:center;gap:8px;margin:0 0 20px;padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:#F6F1EA;font:600 11px/1 'Figtree',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--paper-muted)}
+.inv .pill svg{width:15px;height:15px;color:var(--rose)}
+.inv .par-list{max-width:440px;margin:0 auto}
+.inv .par-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 18px}
+.inv .par-card .par-of{color:var(--rose)}
+.inv .par-line{display:block;width:32px;height:1px;background:var(--rose);opacity:.5;margin:12px auto 0}
+.inv .par-heart{color:var(--rose);display:flex;justify-content:center;margin:10px 0}
+.inv .par-heart svg{width:20px;height:20px;fill:currentColor}
+.inv .venue-photo{margin:0 auto 22px;max-width:440px;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(26,27,46,.14);position:relative}
+.inv .venue-photo img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
+.inv .venue-photo::before,.inv .venue-photo::after{content:"";position:absolute;width:26px;height:26px;border:2px solid #E6C989;z-index:1}
+.inv .venue-photo::before{top:12px;left:12px;border-right:0;border-bottom:0;border-top-left-radius:6px}
+.inv .venue-photo::after{bottom:12px;right:12px;border-left:0;border-top:0;border-bottom-right-radius:6px}
+.inv .pin{width:52px;height:52px;margin:0 auto 12px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--rose);display:flex;align-items:center;justify-content:center}
+.inv .pin svg{width:22px;height:22px}
+.inv .place .t-time{margin:10px auto 0}
+.inv .tagline{display:inline-flex;align-items:center;gap:8px;margin:14px 0 0;padding:7px 14px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--paper-muted);background:#fff}
+.inv .tagline svg{width:16px;height:16px;color:var(--rose)}
+.inv .map{max-width:440px;margin:20px auto 0;border-radius:16px;overflow:hidden;border:1px solid var(--line);aspect-ratio:4/3;background:#EEE9E0}
+.inv .map iframe{display:block;width:100%;height:100%;border:0}
+.inv .dress-card{max-width:440px;margin:0 auto 20px;padding:30px 20px 24px;border-radius:22px;background:#F4EFE7;border:1px solid var(--line)}
+.inv .dress-icons{display:inline-flex;gap:14px;padding:16px 28px;border-radius:999px;background:var(--rose);color:#fff;box-shadow:0 0 0 8px #F4EFE7,0 0 0 9px var(--line)}
+.inv .dress-icons svg{width:34px;height:34px}
+.inv .dress-type{margin:22px 0 6px;font:500 clamp(30px,8vw,38px)/1 'Cormorant Garamond',Georgia,serif;color:var(--rose)}
+.inv .dress-orn{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--rose);font-size:12px}
+.inv .dress-orn span{width:44px;height:1px;background:currentColor;opacity:.5}
 .inv .par-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:26px;max-width:480px;margin:0 auto}
 .inv .par-of{margin:0 0 8px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--paper-muted)}
 .inv .par-name{margin:0;font:600 21px/1.3 'Cormorant Garamond',Georgia,serif}
@@ -708,7 +782,7 @@ const INVITATION_CSS = `
 .inv .gifts .g-icon{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:#F3EDE3;color:var(--rose);display:flex;align-items:center;justify-content:center}
 .inv .gifts .g-icon svg{width:28px;height:28px}
 .inv .gifts .g-title{margin:0 0 16px;font:600 clamp(26px,7vw,32px)/1.15 'Cormorant Garamond',Georgia,serif}
-.inv .gifts .g-text{max-width:34ch;margin:0 auto;color:var(--paper-muted);font-size:16px;line-height:1.6}
+.inv .g-text{max-width:34ch;margin:0 auto;color:var(--paper-muted);font-size:16px;line-height:1.6}
 .inv .g-toggle{margin-top:20px;padding:11px 20px;border-radius:999px;border:1.5px solid var(--rose);background:transparent;color:var(--rose);font:600 13px/1 'Figtree',sans-serif;cursor:pointer}
 .inv .g-bank{max-width:340px;margin:16px auto 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:#fff;text-align:left;display:grid;gap:10px}
 .inv .g-bank[hidden]{display:none}
