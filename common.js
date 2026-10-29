@@ -126,10 +126,10 @@ function countdownText(date) {
 
 // ---------- Mensajes de WhatsApp ----------
 const MSG_TEMPLATES = {
-  clasico: { label: "Clásico", fn: (n, p, u) => `¡Hola ${n}! 💌 Esta es tu invitación (${p}): ${u}` },
-  formal: { label: "Formal", fn: (n, p, u) => `Estimado/a ${n}, con mucho gusto te compartimos tu invitación (${p}): ${u}` },
-  divertido: { label: "Divertido", fn: (n, p, u) => `¡${n}! 🎉 Aparta la fecha, aquí está tu invitación (${p}): ${u}` },
-  recordatorio: { label: "Recordatorio para confirmar", fn: (n, p, u) => `¡Hola ${n}! 💌 Te recordamos confirmar tu asistencia (${p}) aquí: ${u}` },
+  clasico: { label: "Clásico", fn: (n, p, u) => `¡Hola ${n}! 💌 Esta es tu invitación (${p}):\n${u}` },
+  formal: { label: "Formal", fn: (n, p, u) => `Estimado/a ${n}, con mucho gusto te compartimos tu invitación (${p}):\n${u}` },
+  divertido: { label: "Divertido", fn: (n, p, u) => `¡${n}! 🎉 Aparta la fecha, aquí está tu invitación (${p}):\n${u}` },
+  recordatorio: { label: "Recordatorio para confirmar", fn: (n, p, u) => `¡Hola ${n}! 💌 Te recordamos confirmar tu asistencia (${p}) aquí:\n${u}` },
 };
 
 function buildMessage(c, guest, url) {
@@ -141,6 +141,7 @@ function buildMessage(c, guest, url) {
     if (d) bits.push(fmtShort.format(d) + (c.time ? `, ${c.time} h` : ""));
     const place = [c.venue, c.city].filter(Boolean).join(", ");
     if (place) bits.push(place);
+    msg += "\n";
     if (bits.length) msg += `\n📅 ${bits.join(" · ")}`;
     (c.schedule || []).forEach((s) => {
       if (s.label || s.from) msg += `\n• ${timeRange(s.from, s.to)} ${s.label || ""}`.trimEnd();
