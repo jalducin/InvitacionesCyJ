@@ -44,7 +44,7 @@
     .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
     .field{display:grid;gap:5px;min-width:0}
     .field>label,.lbl{font-size:13px;font-weight:500;color:var(--muted)}
-    input[type=text],input[type=url],input[type=password],input[type=date],input[type=time],input[type=number],select,textarea{width:100%;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px;min-width:0}
+    input[type=text],input[type=url],input[type=password],input[type=search],input[type=date],input[type=time],input[type=number],select,textarea{width:100%;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px;min-width:0}
     textarea{resize:vertical;min-height:64px}
     input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,.upload:focus-within{outline:2px solid var(--accent);outline-offset:2px}
     .addr{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);background:var(--bg);border:1px dashed var(--line);border-radius:7px;padding:8px 11px;overflow-wrap:anywhere}
@@ -100,7 +100,36 @@
     .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
     .stat{flex:1;min-width:130px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--bg)}
     .stat b{display:block;font-size:22px;line-height:1.2;font-variant-numeric:tabular-nums}
+    .stat{min-width:0;overflow-wrap:anywhere}
     .stat span{font-size:12px;color:var(--muted)}
+    button.stat{display:block;text-align:left;font:inherit;color:inherit;cursor:pointer}
+    button.stat:hover{border-color:var(--accent)}
+    .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 14px;overflow-x:auto}
+    .subtabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);padding:9px 12px;font-weight:600}
+    .subtabs button:hover{color:var(--fg);border-color:transparent}
+    .subtabs button[aria-current=true]{color:var(--accent);border-bottom-color:var(--accent)}
+    .gbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+    .gbar input[type=search]{flex:1 1 220px;width:auto}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chips button{padding:6px 11px;border-radius:999px;font-size:13px;background:var(--bg)}
+    .chips button span{color:var(--muted);font-variant-numeric:tabular-nums}
+    .chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+    .chips button[aria-pressed=true] span{color:inherit;opacity:.8}
+    .gview{margin-bottom:14px}
+    .gview .hint{margin-top:10px}
+    .gtools{display:flex;flex-wrap:wrap;gap:8px}
+    .guest.grow{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+    .guest.grow .field.name{flex:2 1 200px}
+    .guest.grow .field.pases{flex:0 0 80px}
+    .guest.grow .field.token{flex:3 1 240px}
+    .guest.grow .g-status{align-self:center;padding-top:18px}
+    .g-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .g-head b{font-size:16px}
+    .table-wrap{overflow-x:auto}
+    table.answers{width:100%;border-collapse:collapse;font-size:14px}
+    table.answers th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+    table.answers td{padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+    table.answers tr.guest{display:table-row;padding:0;border-top:0}
     .bulk{border:1px dashed var(--line);border-radius:9px;padding:12px;margin-bottom:14px}
     .guest{border-top:1px solid var(--line);padding:14px 0;display:grid;gap:10px}
     .guest:first-child{border-top:0;padding-top:0}
@@ -139,7 +168,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261029-1"></script>
+  <script src="common.js?v=20261029-2"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -373,26 +402,49 @@
 
         <section class="panel" data-tab="invitados" aria-labelledby="h-inv">
           <div class="guests-head">
-            <div><h2 id="h-inv">Invitados y sus mensajes</h2><p class="hint" id="summary"></p></div>
-            <div class="actions">
-              <button type="button" id="add">Agregar invitado</button>
-              <button type="button" id="bulk-toggle">Pegar lista</button>
-              <button type="button" id="refresh">Actualizar respuestas</button>
-              <button type="button" id="csv">Descargar lista</button>
-              <button type="button" class="primary" id="copy-all">Copiar todos los mensajes</button>
-            </div>
+            <div><h2 id="h-inv">Invitados</h2><p class="hint" id="summary"></p></div>
           </div>
           <div class="stats" id="stats"></div>
-          <div class="msgcfg">
-            <div class="field"><label for="template">Estilo del mensaje</label><select id="template" data-key="template"></select></div>
-            <label class="check"><input type="checkbox" id="details"> Agregar fecha, lugar y programa debajo del link</label>
+
+          <nav class="subtabs" aria-label="Secciones de invitados">
+            <button type="button" data-gview="lista">Lista de invitados</button>
+            <button type="button" data-gview="enviar">Enviar invitaciones</button>
+            <button type="button" data-gview="respuestas">Respuestas</button>
+          </nav>
+
+          <div class="gbar">
+            <input type="search" id="gq" placeholder="Buscar por nombre…" aria-label="Buscar invitado" autocomplete="off">
+            <div class="chips" id="gfilters" role="group" aria-label="Filtrar invitados"></div>
           </div>
-          <div class="bulk stack" id="bulk" hidden>
-            <div class="field"><label for="bulk-txt">Un invitado por línea: nombre, pases (por ejemplo “Familia Pérez, 4”)</label><textarea id="bulk-txt" rows="5"></textarea></div>
-            <div><button type="button" class="primary" id="bulk-add">Agregar a la lista</button></div>
+
+          <div class="gview" data-gv="lista">
+            <div class="gtools">
+              <button type="button" class="primary" id="add">Agregar invitado</button>
+              <button type="button" id="bulk-toggle">Pegar lista</button>
+            </div>
+            <div class="bulk stack" id="bulk" hidden>
+              <div class="field"><label for="bulk-txt">Un invitado por línea: nombre, pases (por ejemplo “Familia Pérez, 4”)</label><textarea id="bulk-txt" rows="5"></textarea></div>
+              <div><button type="button" class="primary" id="bulk-add">Agregar a la lista</button></div>
+            </div>
+            <p class="hint">Los invitados nuevos y los links cambiados empiezan a funcionar al tocar “Guardar cambios”. Si alguien necesita cambiar su respuesta, toca “Cambiar” en su link, guarda y envíale el mensaje nuevo.</p>
           </div>
+
+          <div class="gview" data-gv="enviar">
+            <div class="msgcfg">
+              <div class="field"><label for="template">Estilo del mensaje</label><select id="template" data-key="template"></select></div>
+              <label class="check"><input type="checkbox" id="details"> Agregar fecha, lugar y programa debajo del link</label>
+              <button type="button" class="primary" id="copy-all">Copiar los mensajes de esta lista</button>
+            </div>
+          </div>
+
+          <div class="gview" data-gv="respuestas">
+            <div class="gtools">
+              <button type="button" class="primary" id="refresh">Actualizar respuestas</button>
+              <button type="button" id="csv">Descargar lista (Excel)</button>
+            </div>
+          </div>
+
           <div id="guests"></div>
-          <p class="hint" style="margin-top:12px">Los invitados nuevos y los links cambiados empiezan a funcionar al tocar “Guardar cambios”. La respuesta de cada invitado es definitiva: si alguien necesita cambiarla, toca “Cambiar” en su link, guarda y envíale el mensaje nuevo.</p>
         </section>
 
         ${
@@ -643,12 +695,27 @@
       $("test-song").onclick = () => player.toggle();
 
       // Invitados
+      root.querySelectorAll("[data-gview]").forEach((b) => (b.onclick = () => { gview = b.dataset.gview; store.set("guest-view", gview); renderGuests(); }));
+      $("gq").oninput = (e) => { gq = e.target.value; renderGuests(); };
+      $("gfilters").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-filter]");
+        if (!b) return;
+        gfilter = b.dataset.filter;
+        renderGuests();
+      });
+      $("stats").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-filter]");
+        if (!b) return;
+        gfilter = b.dataset.filter;
+        if (gview === "lista") gview = "respuestas";
+        renderGuests();
+      });
       $("guests").addEventListener("input", (e) => {
         const g = guestOf(e.target);
         if (!g) return;
         if (e.target.dataset.f === "nombre") g.nombre = e.target.value;
         if (e.target.dataset.f === "pases") g.pases = Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1));
-        changed(); renderViewAs(); renderPreview(); updateMessages();
+        changed(); renderViewAs(); renderPreview(); renderSummary();
       });
       $("guests").addEventListener("click", (e) => {
         const b = e.target.closest("[data-act]");
@@ -674,6 +741,9 @@
       $("add").onclick = () => {
         const g = { token: newToken(), nombre: "", pases: 2, nuevo: true };
         guests.push(g);
+        gq = "";
+        $("gq").value = "";
+        gfilter = "todos";
         changed(); renderGuests(); renderPreview();
         root.querySelector(`.guest[data-token="${g.token}"] [data-f=nombre]`)?.focus();
       };
@@ -696,10 +766,10 @@
       $("refresh").onclick = refreshAnswers;
       $("csv").onclick = downloadCsv;
       $("copy-all").onclick = () => {
-        const list = guests.filter((g) => g.nombre.trim());
-        if (!list.length) return toast("Agrega al menos un invitado");
+        const list = visibleGuests().filter((g) => g.nombre.trim());
+        if (!list.length) return toast("No hay invitados en esta lista");
         const pending = list.filter((g) => g.nuevo).length;
-        copyText(list.map(messageFor).join("\n\n"), pending ? `Copiados. ${pending} links aún sin guardar.` : `${list.length} mensajes copiados`);
+        copyText(list.map(messageFor).join("\n\n"), pending ? `Copiados. ${pending} links aún sin guardar.` : `${list.length} ${list.length === 1 ? "mensaje copiado" : "mensajes copiados"}`);
       };
 
       // Efectos
@@ -821,6 +891,10 @@
       const p = $("preview");
       p.innerHTML = renderInvitation(S, g);
       if (!animate) p.querySelector(".inv").classList.add("still");
+      p.querySelector(".rsvp-cta")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        toast("En la invitación real, este botón lleva al formulario para confirmar");
+      });
       wireInvitation(p, S, player);
       player.onchange = paintMusic;
       paintMusic();
@@ -831,6 +905,19 @@
     }
 
     // ---------- Invitados ----------
+    let gview = ["lista", "enviar", "respuestas"].includes(store.get("guest-view")) ? store.get("guest-view") : "lista";
+    let gfilter = "todos";
+    let gq = "";
+
+    const STATES = {
+      todos: ["Todos", () => true],
+      si: ["Asistirán", (g) => !g.nuevo && g.rsvp === "si"],
+      no: ["No asistirán", (g) => !g.nuevo && g.rsvp === "no"],
+      pend: ["Sin responder", (g) => !g.nuevo && !g.rsvp],
+      noabre: ["Sin abrir", (g) => !g.nuevo && !g.rsvp && !g.abierta_at],
+      nuevo: ["Sin guardar", (g) => g.nuevo],
+    };
+
     function guestOf(el) {
       const row = el.closest(".guest");
       return row ? guests.find((g) => g.token === row.dataset.token) : null;
@@ -843,32 +930,66 @@
       return `<span class="tag">${g.abierta_at ? "Abrió, sin responder" : "Sin abrir"}</span>`;
     }
 
+    const fold = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    function visibleGuests() {
+      const q = fold(gq).trim();
+      return guests.filter((g) => STATES[gfilter][1](g) && (!q || fold(g.nombre).includes(q)));
+    }
+
     function renderGuests() {
+      root.querySelectorAll("[data-gview]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.gview === gview)));
+      root.querySelectorAll("[data-gv]").forEach((el) => (el.hidden = el.dataset.gv !== gview));
+      $("gfilters").innerHTML = Object.entries(STATES)
+        .filter(([k]) => k !== "nuevo" || guests.some((g) => g.nuevo))
+        .map(([k, [label, fn]]) => `<button type="button" data-filter="${k}" aria-pressed="${k === gfilter}">${label} <span>${guests.filter(fn).length}</span></button>`)
+        .join("");
+      if (gfilter === "nuevo" && !guests.some((g) => g.nuevo)) gfilter = "todos";
+
+      const list = visibleGuests();
       const box = $("guests");
-      if (!guests.length) box.innerHTML = `<p class="empty">Aún no hay invitados. Agrega el primero para ver su mensaje.</p>`;
-      else
-        box.innerHTML = guests
-          .map(
-            (g) => `<div class="guest" data-token="${esc(g.token)}">
-              <div class="g-status">${statusTag(g)}</div>
-              <div class="g-top">
-                <div class="field name"><label>Nombre o familia</label><input type="text" data-f="nombre" value="${esc(g.nombre)}" maxlength="120" autocomplete="off"></div>
-                <div class="field pases"><label>Pases</label><input type="number" data-f="pases" min="1" max="20" inputmode="numeric" value="${g.pases}"></div>
-                <div class="field token"><span class="lbl">Link único</span><div class="tokenbox"><code>${esc(g.token)}</code><button type="button" class="quiet" data-act="regen" title="Generar otro link. Úsalo si el invitado necesita cambiar su respuesta">Cambiar</button></div></div>
-                <button type="button" class="quiet" data-act="del">Quitar</button>
-              </div>
-              <div class="g-msg"><div class="msg"></div>
-                <div class="msg-acts">
-                  <button type="button" data-act="copy" title="Copia el saludo y el link, para pegarlo en WhatsApp">Copiar mensaje</button>
-                  <button type="button" data-act="copylink" title="Copia solo el link">Copiar link</button>
-                  <a class="btn" data-wa target="_blank" rel="noopener">Enviar por WhatsApp</a>
-                  <a class="btn" data-open target="_blank" rel="noopener">Abrir invitación</a>
-                </div>
-              </div>
-            </div>`
-          )
-          .join("");
+      if (!guests.length) box.innerHTML = `<p class="empty">Aún no hay invitados. Toca “Agregar invitado” o “Pegar lista”.</p>`;
+      else if (!list.length) box.innerHTML = `<p class="empty">Nadie coincide con la búsqueda o el filtro.</p>`;
+      else if (gview === "lista") box.innerHTML = list.map(listRow).join("");
+      else if (gview === "enviar") box.innerHTML = list.map(sendRow).join("");
+      else box.innerHTML = answersTable(list);
       updateMessages();
+    }
+
+    function listRow(g) {
+      return `<div class="guest grow" data-token="${esc(g.token)}">
+        <div class="field name"><label>Nombre o familia</label><input type="text" data-f="nombre" value="${esc(g.nombre)}" maxlength="120" autocomplete="off"></div>
+        <div class="field pases"><label>Pases</label><input type="number" data-f="pases" min="1" max="20" inputmode="numeric" value="${g.pases}"></div>
+        <div class="field token"><span class="lbl">Link único</span><div class="tokenbox"><code>${esc(g.token)}</code><button type="button" class="quiet" data-act="regen" title="Generar otro link. Úsalo si el invitado necesita cambiar su respuesta">Cambiar</button></div></div>
+        <div class="g-status">${statusTag(g)}</div>
+        <button type="button" class="quiet" data-act="del">Quitar</button>
+      </div>`;
+    }
+
+    function sendRow(g) {
+      return `<div class="guest" data-token="${esc(g.token)}">
+        <div class="g-head"><b>${esc(g.nombre || "Sin nombre")}</b> <span class="hint">${plural(Number(g.pases) || 1)}</span> <span class="g-status">${statusTag(g)}</span></div>
+        <div class="g-msg"><div class="msg"></div>
+          <div class="msg-acts">
+            <a class="btn primary" data-wa target="_blank" rel="noopener">Enviar por WhatsApp</a>
+            <button type="button" data-act="copy" title="Copia el saludo y el link, para pegarlo en WhatsApp">Copiar mensaje</button>
+            <button type="button" data-act="copylink" title="Copia solo el link">Copiar link</button>
+            <a class="btn" data-open target="_blank" rel="noopener">Abrir invitación</a>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function answersTable(list) {
+      const when = (iso) => (iso ? new Date(iso).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "—");
+      return `<div class="table-wrap"><table class="answers">
+        <thead><tr><th>Invitado</th><th>Pases</th><th>Respuesta</th><th>Personas</th><th>Respondió</th><th>Abrió</th></tr></thead>
+        <tbody>${list
+          .map(
+            (g) => `<tr class="guest" data-token="${esc(g.token)}">
+            <td>${esc(g.nombre)}</td><td>${g.pases}</td><td class="g-status">${statusTag(g)}</td>
+            <td>${g.rsvp === "si" ? g.rsvp_pases : "—"}</td><td>${when(g.rsvp_at)}</td><td>${when(g.abierta_at)}</td></tr>`
+          )
+          .join("")}</tbody></table></div>`;
     }
 
     function messageFor(g) {
@@ -878,7 +999,7 @@
     function updateMessages() {
       guests.forEach((g) => {
         const row = root.querySelector(`.guest[data-token="${g.token}"]`);
-        if (!row) return;
+        if (!row || !row.querySelector(".msg")) return;
         const m = messageFor(g);
         row.querySelector(".msg").textContent = m;
         const wa = row.querySelector("[data-wa]");
@@ -888,8 +1009,12 @@
         open.href = inviteUrl(g.token);
         open.hidden = !!g.nuevo;
       });
+      renderSummary();
+    }
+
+    function renderSummary() {
       const total = guests.reduce((n, g) => n + (Number(g.pases) || 0), 0);
-      $("summary").textContent = `${guests.length} ${guests.length === 1 ? "invitado" : "invitados"} · ${plural(total)}`;
+      $("summary").textContent = `${guests.length} ${guests.length === 1 ? "invitación" : "invitaciones"} · ${plural(total)} en total`;
       renderStats();
     }
 
@@ -907,11 +1032,13 @@
           if (r.rsvp !== g.rsvp || r.rsvp_pases !== g.rsvp_pases) nuevas++;
           Object.assign(g, { rsvp: r.rsvp, rsvp_pases: r.rsvp_pases, rsvp_at: r.rsvp_at, abierta_at: r.abierta_at });
         });
-        guests.forEach((g) => {
-          const row = root.querySelector(`.guest[data-token="${g.token}"] .g-status`);
-          if (row) row.innerHTML = statusTag(g);
-        });
-        renderStats();
+        if (gview === "lista") {
+          guests.forEach((g) => {
+            const row = root.querySelector(`.guest[data-token="${g.token}"] .g-status`);
+            if (row) row.innerHTML = statusTag(g);
+          });
+          renderSummary();
+        } else renderGuests();
         toast(nuevas ? `${nuevas} ${nuevas === 1 ? "respuesta nueva" : "respuestas nuevas"}` : "No hay respuestas nuevas");
       } catch (err) {
         toast(err.message);
@@ -953,10 +1080,10 @@
       const pend = saved.filter((g) => !g.rsvp);
       const people = si.reduce((n, g) => n + (g.rsvp_pases || 0), 0);
       $("stats").innerHTML = `
-        <div class="stat"><b>${people}</b><span>personas confirmadas (${si.length} ${si.length === 1 ? "invitación" : "invitaciones"})</span></div>
-        <div class="stat"><b>${no.length}</b><span>no asistirán</span></div>
-        <div class="stat"><b>${pend.length}</b><span>sin responder</span></div>
-        <div class="stat"><b>${saved.filter((g) => g.abierta_at).length}</b><span>ya abrieron su invitación</span></div>`;
+        <button type="button" class="stat" data-filter="si"><b>${people}</b><span>personas confirmadas (${si.length} ${si.length === 1 ? "invitación" : "invitaciones"})</span></button>
+        <button type="button" class="stat" data-filter="no"><b>${no.length}</b><span>no asistirán</span></button>
+        <button type="button" class="stat" data-filter="pend"><b>${pend.length}</b><span>sin responder</span></button>
+        <button type="button" class="stat" data-filter="noabre"><b>${saved.filter((g) => !g.rsvp && !g.abierta_at).length}</b><span>no han abierto su invitación</span></button>`;
     }
 
     async function copyText(text, done) {

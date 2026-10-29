@@ -217,6 +217,7 @@ function renderInvitation(c, guest) {
         <div class="date in" style="--d:.9s">${d ? esc(cap(fmtLong.format(d))) : "Fecha por definir"}</div>
         ${c.time ? `<div class="meta in" style="--d:1s">${esc(c.time)} h</div>` : ""}
         ${guest ? `<div class="pases in" style="--d:1.15s">✦ ${esc(String(guest.nombre || "").trim() || "Invitado")} · ${plural(Number(guest.pases) || 1)}</div>` : ""}
+        <a class="rsvp-cta in" style="--d:1.3s" href="#confirmar">${guest && guest.rsvp ? "Ver mi respuesta" : "Confirmar asistencia"}</a>
       </div>
       <a class="scroll-hint" href="#detalles" aria-label="Bajar para ver más"><span>Desliza</span><i></i></a>
     </section>
@@ -307,8 +308,8 @@ function renderInvitation(c, guest) {
           : ""
       }
 
-      <section class="sec rsvp-sec">
-        <div class="rsvp-slot rv" id="confirmar"></div>
+      <section class="sec rsvp-sec" id="confirmar">
+        <div class="rsvp-slot"></div>
       </section>
 
       ${hasSong && c.songTitle ? `<p class="song rv">♪ ${esc(c.songTitle)}</p>` : ""}
@@ -507,6 +508,8 @@ const INVITATION_CSS = `
 .inv .date{font:600 21px/1.2 'Cormorant Garamond',Georgia,serif}
 .inv .meta{font-size:14px;opacity:.92}
 .inv .pases{font-size:13px;padding:8px 16px;border-radius:999px;border:1px solid currentColor;margin-top:10px}
+.inv .rsvp-cta{margin-top:6px;padding:12px 22px;border-radius:999px;border:1.5px solid currentColor;color:inherit;text-decoration:none;font:600 13px/1 'Figtree',sans-serif;letter-spacing:.04em}
+.inv .rsvp-cta:hover{background:rgba(255,255,255,.18)}
 .inv .music-btn{position:absolute;top:14px;right:14px;z-index:5;display:inline-flex;align-items:center;gap:6px;padding:8px 13px;font:600 12px/1 'Figtree',sans-serif;color:inherit;background:rgba(0,0,0,.18);border:1.5px solid currentColor;border-radius:999px;backdrop-filter:blur(4px);cursor:pointer}
 .inv .card.dark-text .music-btn{background:rgba(255,255,255,.35)}
 .inv .music-btn[aria-pressed=true]{background:rgba(255,255,255,.22)}
