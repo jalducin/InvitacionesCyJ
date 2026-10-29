@@ -69,7 +69,31 @@ const DEFAULT_CONFIG = {
   volume: 60,
   template: "clasico", // estilo del mensaje de WhatsApp
   details: false,
+  // Efectos
+  fx: "fade", // animación al bajar: "fade", "zoom", "slide" o "none"
+  fxSpeed: "normal", // "lento", "normal" o "rapido"
+  coverIn: true, // nombres y fecha de la portada aparecen uno por uno
+  parallax: true, // el fondo de la portada se mueve más lento al bajar
+  particles: "none", // "none", "petalos", "corazones" o "destellos"
 };
+
+// Opciones de efectos que ofrece el editor.
+const FX = { fade: "Aparecer suave", zoom: "Acercar", slide: "Deslizar de lado", none: "Sin animación" };
+const FX_SPEED = { lento: ["Lento", 1.4], normal: ["Normal", 0.9], rapido: ["Rápido", 0.5] };
+const PARTICLES = { none: "Ninguna", petalos: "Pétalos", corazones: "Corazones", destellos: "Destellos" };
+
+function particlesHtml(kind) {
+  if (kind === "none") return "";
+  const ch = kind === "corazones" ? "♥" : kind === "destellos" ? "✦" : "";
+  let out = "";
+  for (let i = 0; i < 16; i++) {
+    // Valores repartidos pero fijos, para que la portada se vea igual en cada carga.
+    const x = (i * 61) % 100, dur = 9 + ((i * 7) % 8), delay = -((i * 13) % 17), size = 10 + ((i * 5) % 12);
+    const dx = ((i % 2 ? 1 : -1) * (20 + ((i * 11) % 40))) + "px";
+    out += `<i style="--x:${x}%;--du:${dur}s;--dl:${delay}s;--sz:${size}px;--dx:${dx}">${ch}</i>`;
+  }
+  return `<div class="particles ${kind}" aria-hidden="true">${out}</div>`;
+}
 
 function normalizeConfig(c) {
   c = { ...DEFAULT_CONFIG, ...(c || {}) };
@@ -77,6 +101,9 @@ function normalizeConfig(c) {
   if (c.songSrc !== "none" && c.songSrc !== "demo") c.songSrc = c.songUrl ? "file" : "none";
   if (!Array.isArray(c.schedule)) c.schedule = [];
   if (!Array.isArray(c.photos)) c.photos = [];
+  if (!FX[c.fx]) c.fx = "fade";
+  if (!FX_SPEED[c.fxSpeed]) c.fxSpeed = "normal";
+  if (!PARTICLES[c.particles]) c.particles = "none";
   return c;
 }
 
@@ -174,9 +201,10 @@ function renderInvitation(c, guest) {
   const ornament = `<div class="orn rv" aria-hidden="true"><span></span>✦<span></span></div>`;
 
   return `
-  <article class="inv">
+  <article class="inv fx-${c.fx}${c.coverIn ? "" : " no-in"}" style="--fxdur:${FX_SPEED[c.fxSpeed][1]}s">
     <section class="card${c.tone === "dark" ? " dark-text" : ""}">
       ${bgLayers(c)}
+      ${particlesHtml(c.particles)}
       ${hasSong ? `<button type="button" class="music-btn" aria-pressed="false">♪ Reproducir</button>` : ""}
       <div class="inner">
         <div class="kicker in" style="--d:.1s">Nos casamos</div>
@@ -313,7 +341,7 @@ function wireInvitation(root, c, player) {
   // Aparición al hacer scroll.
   const items = root.querySelectorAll(".rv");
   if (root._io) root._io.disconnect();
-  if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (c.fx !== "none" && "IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     root._io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
@@ -329,13 +357,14 @@ function wireInvitation(root, c, player) {
 
   // Efecto parallax suave en el fondo de la portada.
   const bg = root.querySelector(".card .bgimg");
-  if (bg && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (root._onScroll) (root._scroller || window).removeEventListener("scroll", root._onScroll);
+  root._onScroll = null;
+  if (bg && c.parallax && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const scroller = root.closest(".preview-col") || window;
     const onScroll = () => {
       const y = scroller === window ? window.scrollY : scroller.scrollTop;
       bg.style.transform = `translateY(${Math.min(y, 900) * 0.35}px) scale(1.08)`;
     };
-    if (root._onScroll) (root._scroller || window).removeEventListener("scroll", root._onScroll);
     root._onScroll = onScroll;
     root._scroller = scroller;
     scroller.addEventListener("scroll", onScroll, { passive: true });
@@ -470,7 +499,7 @@ const INVITATION_CSS = `
 .inv .card.dark-text{--ink:var(--inv-dark)}
 .inv .card .bgimg,.inv .card .shade{position:absolute;inset:0;z-index:-1}
 .inv .card .bgimg{transform:scale(1.08);will-change:transform}
-.inv .card .inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:64px 24px 96px}
+.inv .card .inner{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:64px 24px 96px}
 .inv .kicker{font:600 11px/1 'Figtree',sans-serif;letter-spacing:.32em;text-transform:uppercase;opacity:.85}
 .inv .names{font:600 clamp(42px,13vw,58px)/.95 'Cormorant Garamond',Georgia,serif;margin:6px 0 2px;overflow-wrap:anywhere;display:flex;flex-direction:column}
 .inv .amp{font:italic 500 28px/1 'Cormorant Garamond',Georgia,serif;opacity:.85;display:block;margin:6px 0}
@@ -522,12 +551,24 @@ const INVITATION_CSS = `
 .inv .end span{font:500 11px/1 'Figtree',sans-serif;letter-spacing:.3em;color:var(--paper-muted)}
 
 /* Animaciones: portada al cargar, secciones al llegar con el scroll */
-.inv .in{opacity:0;transform:translateY(14px);animation:inv-in .9s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:var(--d,0s)}
+.inv .in{opacity:0;transform:translateY(14px);animation:inv-in var(--fxdur,.9s) cubic-bezier(.2,.7,.2,1) forwards;animation-delay:var(--d,0s)}
 @keyframes inv-in{to{opacity:1;transform:none}}
-.inv .rv{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
+.inv .rv{opacity:0;transform:translateY(28px);transition:opacity var(--fxdur,.9s) cubic-bezier(.2,.7,.2,1),transform var(--fxdur,.9s) cubic-bezier(.2,.7,.2,1);transition-delay:var(--d,0s)}
 .inv .rv.zoom{transform:scale(.92)}
+.inv.fx-zoom .rv{transform:scale(.86)}
+.inv.fx-slide .rv{transform:translateX(-44px)}
+.inv.fx-slide .sec:nth-child(even) .rv,.inv.fx-slide .gal-grid .rv:nth-child(even){transform:translateX(44px)}
 .inv .rv.shown{opacity:1;transform:none}
+.inv.fx-none .rv{opacity:1;transform:none;transition:none}
+.inv.no-in .in,.inv.fx-none .in{opacity:1;transform:none;animation:none}
+.inv .particles{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.inv .particles i{position:absolute;top:-8%;left:var(--x);font-style:normal;font-size:var(--sz);line-height:1;opacity:.75;animation:inv-fall var(--du) linear var(--dl) infinite}
+.inv .particles.petalos i{width:var(--sz);height:calc(var(--sz) * .7);background:linear-gradient(135deg,#FBD3DE,#EE9FB4);border-radius:150% 0 150% 0;opacity:.85}
+.inv .particles.corazones i{color:#F4A7BB}
+.inv .particles.destellos i{color:#FFE7A8;text-shadow:0 0 8px rgba(255,231,168,.8)}
+@keyframes inv-fall{0%{top:-8%;transform:translateX(0) rotate(0)}100%{top:108%;transform:translateX(var(--dx)) rotate(320deg)}}
 @media (prefers-reduced-motion: reduce){
+  .inv .particles{display:none}
   .inv .in,.inv .rv{opacity:1;transform:none;animation:none;transition:none}
   .inv .scroll-hint i::after{animation:none}
 }

@@ -26,9 +26,17 @@
     .status.err{color:var(--err)}
     .topbar .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 
+    .tabs{flex-basis:100%;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:2px -2px -13px}
+    .tabs::-webkit-scrollbar{display:none}
+    .tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);padding:10px 12px;font-weight:600}
+    .tabs button:hover{color:var(--fg);border-color:transparent;border-bottom-color:var(--line)}
+    .tabs button[aria-current=true]{color:var(--accent);border-bottom-color:var(--accent)}
+    .seg.wrap{flex-wrap:wrap}
+    .msgcfg{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;padding:14px;margin-bottom:16px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
+    .msgcfg .field{flex:0 1 280px}
     .layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
     .editor{display:grid;gap:16px;min-width:0}
-    .preview-col{position:sticky;top:84px;min-width:0;max-height:calc(100vh - 100px);overflow-y:auto;border-radius:10px}
+    .preview-col{position:sticky;top:var(--top-h,130px);min-width:0;max-height:calc(100vh - var(--top-h,130px) - 16px);overflow-y:auto;border-radius:10px}
 
     .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;min-width:0}
     .panel h2{font:600 12px/1 'Figtree',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
@@ -81,6 +89,8 @@
     .phone .who select{width:auto;flex:1;padding:6px 9px}
     .phone .inv{border-radius:12px;overflow:hidden}
     .phone .inv .card{min-height:620px}
+    .phone .inv.still .in{animation:none;opacity:1;transform:none}
+    .phone .inv.still .rv{opacity:1;transform:none;transition:none}
     .phone .inv .gallery{padding:24px 10px 16px}
 
     /* Invitados */
@@ -228,12 +238,20 @@
           <div class="actions">
             <a class="btn" id="openInv" target="_blank" rel="noopener">Ver como invitado</a>
             <button class="primary" id="save">Guardar cambios</button>
+            <button type="button" class="quiet" id="logout">Salir</button>
           </div>
+          <nav class="tabs" aria-label="Secciones del editor">
+            <button type="button" data-go="evento">Evento</button>
+            <button type="button" data-go="diseno">Diseño</button>
+            <button type="button" data-go="efectos">Efectos</button>
+            <button type="button" data-go="invitados">Invitados y mensajes</button>
+            ${role === "admin" ? `<button type="button" data-go="acceso">Acceso</button>` : ""}
+          </nav>
         </header>
 
         <div class="layout">
           <div class="editor">
-            <section class="panel" aria-labelledby="h-pareja">
+            <section class="panel" data-tab="evento" aria-labelledby="h-pareja">
               <h2 id="h-pareja">La pareja y el evento</h2>
               <div class="stack">
                 <div class="row">
@@ -255,7 +273,7 @@
               </div>
             </section>
 
-            <section class="panel" aria-labelledby="h-padres">
+            <section class="panel" data-tab="evento" aria-labelledby="h-padres">
               <h2 id="h-padres">Nuestros papás</h2>
               <div class="stack">
                 <p class="hint">Aparecen en la invitación bajo “Con la bendición de nuestros papás”. Deja vacío lo que no quieran mostrar.</p>
@@ -270,13 +288,13 @@
               </div>
             </section>
 
-            <section class="panel" aria-labelledby="h-prog">
+            <section class="panel" data-tab="evento" aria-labelledby="h-prog">
               <h2 id="h-prog">Programa del día</h2>
               <div id="sched-list"></div>
               <button type="button" id="sched-add">Agregar momento</button>
             </section>
 
-            <section class="panel" aria-labelledby="h-fondo">
+            <section class="panel" data-tab="diseno" aria-labelledby="h-fondo">
               <h2 id="h-fondo">Fondo de la invitación</h2>
               <div class="stack">
                 <div class="swatches" id="swatches" role="group" aria-label="Fondos disponibles"></div>
@@ -299,7 +317,7 @@
               </div>
             </section>
 
-            <section class="panel" aria-labelledby="h-fotos">
+            <section class="panel" data-tab="diseno" aria-labelledby="h-fotos">
               <h2 id="h-fotos">Sesión de fotos</h2>
               <div class="stack">
                 <div class="field"><label for="photosTitle">Título de la sección</label><input type="text" id="photosTitle" data-key="photosTitle" autocomplete="off"></div>
@@ -312,7 +330,7 @@
               </div>
             </section>
 
-            <section class="panel" aria-labelledby="h-song">
+            <section class="panel" data-tab="diseno" aria-labelledby="h-song">
               <h2 id="h-song">Canción de fondo</h2>
               <div class="stack">
                 <div class="row">
@@ -331,11 +349,16 @@
               </div>
             </section>
 
-            <section class="panel" aria-labelledby="h-msgcfg">
-              <h2 id="h-msgcfg">Mensaje para WhatsApp</h2>
+            <section class="panel" data-tab="efectos" aria-labelledby="h-fx">
+              <h2 id="h-fx">Efectos de la invitación</h2>
               <div class="stack">
-                <div class="field"><label for="template">Estilo del mensaje</label><select id="template" data-key="template"></select></div>
-                <label class="check"><input type="checkbox" id="details"> Agregar fecha, lugar y programa debajo del link</label>
+                <p class="hint">Cómo aparece cada parte de la invitación cuando el invitado baja. Los cambios se ven al momento en la vista previa.</p>
+                <div class="field"><span class="lbl">Animación al bajar</span><div class="seg wrap" id="fx" role="group" aria-label="Animación al bajar"></div></div>
+                <div class="field"><span class="lbl">Velocidad</span><div class="seg" id="fxSpeed" role="group" aria-label="Velocidad de la animación"></div></div>
+                <div class="field"><span class="lbl">Partículas en la portada</span><div class="seg wrap" id="particles" role="group" aria-label="Partículas en la portada"></div></div>
+                <label class="check"><input type="checkbox" id="coverIn"> Los nombres y la fecha de la portada aparecen uno por uno</label>
+                <label class="check"><input type="checkbox" id="parallax"> El fondo de la portada se mueve más lento al bajar (profundidad)</label>
+                <div><button type="button" id="fx-replay">Ver la animación otra vez</button></div>
               </div>
             </section>
           </div>
@@ -348,7 +371,7 @@
           </aside>
         </div>
 
-        <section class="panel" style="margin-top:24px" aria-labelledby="h-inv">
+        <section class="panel" data-tab="invitados" aria-labelledby="h-inv">
           <div class="guests-head">
             <div><h2 id="h-inv">Invitados y sus mensajes</h2><p class="hint" id="summary"></p></div>
             <div class="actions">
@@ -360,6 +383,10 @@
             </div>
           </div>
           <div class="stats" id="stats"></div>
+          <div class="msgcfg">
+            <div class="field"><label for="template">Estilo del mensaje</label><select id="template" data-key="template"></select></div>
+            <label class="check"><input type="checkbox" id="details"> Agregar fecha, lugar y programa debajo del link</label>
+          </div>
           <div class="bulk stack" id="bulk" hidden>
             <div class="field"><label for="bulk-txt">Un invitado por línea: nombre, pases (por ejemplo “Familia Pérez, 4”)</label><textarea id="bulk-txt" rows="5"></textarea></div>
             <div><button type="button" class="primary" id="bulk-add">Agregar a la lista</button></div>
@@ -370,7 +397,7 @@
 
         ${
           role === "admin"
-            ? `<section class="panel" style="margin-top:16px" aria-labelledby="h-acceso">
+            ? `<section class="panel" data-tab="acceso" aria-labelledby="h-acceso">
           <h2 id="h-acceso">Acceso de la pareja</h2>
           <div class="stack">
             <p class="hint">Solo tú ves esta sección. Genera la clave de la pareja y entrégasela junto con el link del editor. Al generar una nueva, la anterior deja de servir.</p>
@@ -386,19 +413,36 @@
           </div>
         </section>`
             : ""
-        }
-
-        <section class="panel" style="margin-top:16px">
-          <button type="button" class="quiet" id="logout">Salir del editor</button>
-        </section>`;
+        }`;
 
       wireControls();
       syncControls();
       renderSchedule();
       renderPhotos();
       renderGuests();
-      renderPreview();
+      renderPreview(true);
+      root.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => showTab(b.dataset.go)));
+      const first = location.hash.slice(1) || store.get("editor-tab");
+      showTab(root.querySelector(`[data-go="${first}"]`) ? first : "evento");
+      measureTop();
     }
+
+    // ---------- Menú ----------
+    const TABS_WITH_PREVIEW = ["evento", "diseno", "efectos"];
+    function showTab(t) {
+      root.querySelectorAll("[data-tab]").forEach((el) => (el.hidden = el.dataset.tab !== t));
+      root.querySelector(".layout").hidden = !TABS_WITH_PREVIEW.includes(t);
+      root.querySelectorAll("[data-go]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.go === t)));
+      store.set("editor-tab", t);
+      history.replaceState(null, "", "#" + t);
+      window.scrollTo({ top: 0 });
+    }
+    // La vista previa se pega debajo de la barra de arriba, que cambia de alto según el ancho.
+    function measureTop() {
+      const h = root.querySelector(".topbar");
+      if (h) document.documentElement.style.setProperty("--top-h", h.offsetHeight + 16 + "px");
+    }
+    window.addEventListener("resize", measureTop);
 
     function changed() {
       dirty = true;
@@ -426,6 +470,11 @@
       renderSwatches();
       $("img-remove").hidden = !safeUrl(S.image);
       syncMusic();
+      [["fx", S.fx], ["fxSpeed", S.fxSpeed], ["particles", S.particles]].forEach(([id, v]) =>
+        $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)))
+      );
+      $("coverIn").checked = !!S.coverIn;
+      $("parallax").checked = !!S.parallax;
     }
 
     function renderSwatches() {
@@ -653,6 +702,17 @@
         copyText(list.map(messageFor).join("\n\n"), pending ? `Copiados. ${pending} links aún sin guardar.` : `${list.length} mensajes copiados`);
       };
 
+      // Efectos
+      [["fx", FX], ["fxSpeed", FX_SPEED], ["particles", PARTICLES]].forEach(([id, opts]) => {
+        $(id).innerHTML = Object.entries(opts)
+          .map(([v, l]) => `<button type="button" data-v="${v}">${esc(Array.isArray(l) ? l[0] : l)}</button>`)
+          .join("");
+        $(id).querySelectorAll("button").forEach((b) => (b.onclick = () => { S[id] = b.dataset.v; changed(); syncControls(); replayPreview(); }));
+      });
+      $("coverIn").onchange = (e) => { S.coverIn = e.target.checked; changed(); replayPreview(); };
+      $("parallax").onchange = (e) => { S.parallax = e.target.checked; changed(); renderPreview(); };
+      $("fx-replay").onclick = replayPreview;
+
       $("save").onclick = save;
       if (role === "admin") {
         const editorUrl = () => {
@@ -738,6 +798,13 @@
     }
 
     // ---------- Vista previa ----------
+    // Vuelve a dibujar la vista previa desde arriba para que se vean las animaciones de nuevo.
+    function replayPreview() {
+      const col = root.querySelector(".preview-col");
+      if (col) col.scrollTop = 0;
+      renderPreview(true);
+    }
+
     function renderViewAs() {
       const sel = $("viewas");
       const list = guests.length ? guests : [{ token: "", nombre: "Nombre del invitado", pases: 2 }];
@@ -746,12 +813,14 @@
       else viewAs = sel.value;
     }
 
-    function renderPreview() {
+    // Mientras se escribe, la vista previa se actualiza sin repetir las animaciones;
+    // `animate` las vuelve a correr (al cargar, al cambiar un efecto o con "Ver la animación otra vez").
+    function renderPreview(animate) {
       renderViewAs();
       const g = guests.find((x) => x.token === viewAs) || guests[0] || { nombre: "Nombre del invitado", pases: 2 };
       const p = $("preview");
       p.innerHTML = renderInvitation(S, g);
-      p.querySelector(".rsvp")?.addEventListener("click", (e) => { e.preventDefault(); toast("Aquí el invitado confirma su asistencia"); });
+      if (!animate) p.querySelector(".inv").classList.add("still");
       wireInvitation(p, S, player);
       player.onchange = paintMusic;
       paintMusic();
