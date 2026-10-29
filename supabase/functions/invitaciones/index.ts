@@ -102,11 +102,13 @@ Deno.serve(async (req) => {
         if (!b || typeof token !== "string" || !TOKEN.test(token)) return json({ error: "Invitación no encontrada" }, 404);
         const { data: g } = await sb
           .from("boda_invitados")
-          .select("id, pases")
+          .select("id, pases, rsvp")
           .eq("boda_id", b.id)
           .eq("token", token)
           .maybeSingle();
         if (!g) return json({ error: "Invitación no encontrada" }, 404);
+        // La respuesta es definitiva. Para cambiarla, los novios generan un link nuevo desde el editor.
+        if (g.rsvp) return json({ error: "Ya habías respondido. Si necesitas cambiar tu respuesta, avísales a los novios." }, 409);
         if (body.rsvp !== "si" && body.rsvp !== "no") return json({ error: "Respuesta inválida" }, 400);
         let n = 0;
         if (body.rsvp === "si") {
@@ -186,11 +188,24 @@ Deno.serve(async (req) => {
           .eq("id", b.id);
         if (e1) throw e1;
 
+        const { data: existing } = await sb.from("boda_invitados").select("token, rsvp, rsvp_pases").eq("boda_id", b.id);
         if (rows.length) {
           const { error: e2 } = await sb.from("boda_invitados").upsert(rows, { onConflict: "token" });
           if (e2) throw e2;
         }
-        const { data: existing } = await sb.from("boda_invitados").select("token").eq("boda_id", b.id);
+        // Si a alguien que ya confirmó le bajaron los pases, su confirmación no puede pasar del nuevo límite.
+        const before = new Map((existing ?? []).map((x) => [x.token, x]));
+        for (const r of rows) {
+          const old = before.get(r.token);
+          if (old?.rsvp === "si" && (old.rsvp_pases ?? 0) > r.pases) {
+            const { error: e4 } = await sb
+              .from("boda_invitados")
+              .update({ rsvp_pases: r.pases })
+              .eq("boda_id", b.id)
+              .eq("token", r.token);
+            if (e4) throw e4;
+          }
+        }
         const gone = (existing ?? []).map((x) => x.token).filter((t) => !seen.has(t));
         if (gone.length) {
           const { error: e3 } = await sb.from("boda_invitados").delete().eq("boda_id", b.id).in("token", gone);

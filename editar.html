@@ -339,6 +339,8 @@
             <div class="actions">
               <button type="button" id="add">Agregar invitado</button>
               <button type="button" id="bulk-toggle">Pegar lista</button>
+              <button type="button" id="refresh">Actualizar respuestas</button>
+              <button type="button" id="csv">Descargar lista</button>
               <button type="button" class="primary" id="copy-all">Copiar todos los mensajes</button>
             </div>
           </div>
@@ -348,7 +350,7 @@
             <div><button type="button" class="primary" id="bulk-add">Agregar a la lista</button></div>
           </div>
           <div id="guests"></div>
-          <p class="hint" style="margin-top:12px">Los invitados nuevos y los links cambiados empiezan a funcionar al tocar “Guardar cambios”.</p>
+          <p class="hint" style="margin-top:12px">Los invitados nuevos y los links cambiados empiezan a funcionar al tocar “Guardar cambios”. La respuesta de cada invitado es definitiva: si alguien necesita cambiarla, toca “Cambiar” en su link, guarda y envíale el mensaje nuevo.</p>
         </section>
 
         ${
@@ -615,6 +617,8 @@
         changed(); renderGuests(); renderPreview();
         toast(`${n} ${n === 1 ? "invitado agregado" : "invitados agregados"}. Guarda para activar sus links.`);
       };
+      $("refresh").onclick = refreshAnswers;
+      $("csv").onclick = downloadCsv;
       $("copy-all").onclick = () => {
         const list = guests.filter((g) => g.nombre.trim());
         if (!list.length) return toast("Agrega al menos un invitado");
@@ -754,7 +758,7 @@
               <div class="g-top">
                 <div class="field name"><label>Nombre o familia</label><input type="text" data-f="nombre" value="${esc(g.nombre)}" maxlength="120" autocomplete="off"></div>
                 <div class="field pases"><label>Pases</label><input type="number" data-f="pases" min="1" max="20" inputmode="numeric" value="${g.pases}"></div>
-                <div class="field token"><span class="lbl">Link único</span><div class="tokenbox"><code>${esc(g.token)}</code><button type="button" class="quiet" data-act="regen" title="Generar otro link">Cambiar</button></div></div>
+                <div class="field token"><span class="lbl">Link único</span><div class="tokenbox"><code>${esc(g.token)}</code><button type="button" class="quiet" data-act="regen" title="Generar otro link. Úsalo si el invitado necesita cambiar su respuesta">Cambiar</button></div></div>
                 <button type="button" class="quiet" data-act="del">Quitar</button>
               </div>
               <div class="g-msg"><div class="msg"></div>
@@ -786,6 +790,59 @@
       const total = guests.reduce((n, g) => n + (Number(g.pases) || 0), 0);
       $("summary").textContent = `${guests.length} ${guests.length === 1 ? "invitado" : "invitados"} · ${plural(total)}`;
       renderStats();
+    }
+
+    // Trae las respuestas nuevas sin tocar lo que se esté editando (nombres, pases, invitados sin guardar).
+    async function refreshAnswers() {
+      const btn = $("refresh");
+      btn.disabled = true;
+      try {
+        const d = await api({ action: "load", slug, editKey });
+        const byToken = new Map((d.invitados || []).map((g) => [g.token, g]));
+        let nuevas = 0;
+        guests.forEach((g) => {
+          const r = byToken.get(g.token);
+          if (!r || g.nuevo) return;
+          if (r.rsvp !== g.rsvp || r.rsvp_pases !== g.rsvp_pases) nuevas++;
+          Object.assign(g, { rsvp: r.rsvp, rsvp_pases: r.rsvp_pases, rsvp_at: r.rsvp_at, abierta_at: r.abierta_at });
+        });
+        guests.forEach((g) => {
+          const row = root.querySelector(`.guest[data-token="${g.token}"] .g-status`);
+          if (row) row.innerHTML = statusTag(g);
+        });
+        renderStats();
+        toast(nuevas ? `${nuevas} ${nuevas === 1 ? "respuesta nueva" : "respuestas nuevas"}` : "No hay respuestas nuevas");
+      } catch (err) {
+        toast(err.message);
+      }
+      btn.disabled = false;
+    }
+
+    function downloadCsv() {
+      const saved = guests.filter((g) => !g.nuevo);
+      if (!saved.length) return toast("Guarda a tus invitados para descargar la lista");
+      const when = (iso) => (iso ? new Date(iso).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" }) : "");
+      const resp = (g) => (g.rsvp === "si" ? "Asistirá" : g.rsvp === "no" ? "No asistirá" : g.abierta_at ? "Abrió, sin responder" : "Sin abrir");
+      const rows = [["Nombre", "Pases asignados", "Respuesta", "Personas confirmadas", "Fecha de respuesta", "Abrió la invitación", "Link"]];
+      saved.forEach((g) =>
+        rows.push([g.nombre, g.pases, resp(g), g.rsvp === "si" ? g.rsvp_pases : 0, when(g.rsvp_at), when(g.abierta_at), inviteUrl(g.token)])
+      );
+      const total = saved.filter((g) => g.rsvp === "si").reduce((n, g) => n + (g.rsvp_pases || 0), 0);
+      rows.push([], ["Total de personas confirmadas", "", "", total]);
+      const cell = (v) => {
+        let t = String(v ?? "");
+        if (/^[=+\-@]/.test(t)) t = "'" + t; // que Excel no lo tome como fórmula
+        return /[",\n;]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+      };
+      // El BOM hace que Excel lea bien los acentos.
+      const csv = "\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      a.download = `invitados-${slug}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     }
 
     function renderStats() {

@@ -27,6 +27,8 @@
     .rsvp-slot .send{padding:12px 26px;border-radius:999px;border:0;background:#A8325A;color:#fff;font:600 .9rem "Figtree",sans-serif;cursor:pointer}
     .rsvp-slot .send:disabled{opacity:.6}
     .rsvp-slot .ghost{margin-top:14px;padding:9px 18px;border-radius:999px;border:1px solid #A8325A;background:transparent;color:#A8325A;font:500 .85rem "Figtree",sans-serif;cursor:pointer}
+    .rsvp-slot .note-small{margin:10px 0 0;font-size:.82rem;color:#5E6180}
+    .rsvp-slot form .note-small{margin:0}
     .rsvp-slot .msg{min-height:1.2em;margin:0;font-size:.85rem}
     .rsvp-slot .msg.err{color:#A3302A}
     .rsvp-slot .done{font:500 1.25rem/1.4 "Cormorant Garamond",Georgia,serif;margin:0}
@@ -57,7 +59,7 @@
         const text = g.rsvp === "si"
           ? `¡Gracias! Confirmaste ${plural(g.rsvp_pases)}.`
           : "Gracias por avisarnos. Te vamos a extrañar.";
-        return `<h2>Confirmación</h2><p class="done">${text}</p><button class="ghost" data-change>Cambiar respuesta</button>`;
+        return `<h2>Confirmación</h2><p class="done">${text}</p><p class="note-small">Si necesitas cambiar tu respuesta, avísales a los novios.</p>`;
       }
       const opts = Array.from({ length: g.pases }, (_, i) => i + 1)
         .map((n) => `<option value="${n}" ${n === g.pases ? "selected" : ""}>${plural(n)}</option>`)
@@ -69,6 +71,7 @@
             <label class="opt"><input type="radio" name="r" value="no"> No podré ir</label>
           </div>
           <select name="pases" aria-label="Pases que usarás">${opts}</select>
+          <p class="note-small">Tu respuesta es definitiva; revísala antes de enviar.</p>
           <button class="send" type="submit">Enviar respuesta</button>
           <p class="msg" role="status"></p>
         </form>`;
@@ -76,14 +79,14 @@
 
     function mountRsvp(slot, g) {
       slot.innerHTML = rsvpHtml(g);
-      const change = slot.querySelector("[data-change]");
-      if (change) change.onclick = () => mountRsvp(slot, { ...g, rsvp: null });
       const form = slot.querySelector("form");
       if (!form) return;
       const sel = form.querySelector("select");
       form.addEventListener("change", () => (sel.hidden = form.r.value !== "si"));
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        const resumen = form.r.value === "si" ? `que asistirás con ${plural(Number(sel.value))}` : "que no podrás asistir";
+        if (!confirm(`¿Confirmas ${resumen}? Después ya no podrás cambiarla desde aquí.`)) return;
         const msg = form.querySelector(".msg");
         const btn = form.querySelector(".send");
         btn.disabled = true;
