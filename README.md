@@ -7,3 +7,5 @@ Invitaciones de boda virtuales con link único por invitado.
 - `common.js`: código compartido.
 
 Los datos viven en Supabase, detrás de la función `invitaciones`.
+
+Al cambiar `common.js`, sube el número de `?v=` en `index.html` y `editar.html` para que los navegadores no usen la copia vieja.
