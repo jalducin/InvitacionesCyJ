@@ -581,7 +581,8 @@
         const g = guestOf(b);
         if (!g) return;
         const act = b.dataset.act;
-        if (act === "copy") copyText(messageFor(g), "Mensaje copiado");
+        if (act === "copy") copyText(messageFor(g), "Mensaje copiado: pégalo en WhatsApp");
+        if (act === "copylink") copyText(inviteUrl(g.token), g.nuevo ? "Link copiado. Guarda los cambios para que funcione." : "Link copiado");
         if (act === "regen") {
           if (!g.nuevo && !confirm(`¿Cambiar el link de ${g.nombre || "este invitado"}? El link anterior dejará de funcionar al guardar${g.rsvp ? " y se borrará su confirmación" : ""}.`)) return;
           g.token = newToken();
@@ -763,8 +764,10 @@
               </div>
               <div class="g-msg"><div class="msg"></div>
                 <div class="msg-acts">
-                  <button type="button" data-act="copy">Copiar</button>
-                  <a class="btn" data-wa target="_blank" rel="noopener">WhatsApp</a>
+                  <button type="button" data-act="copy" title="Copia el saludo y el link, para pegarlo en WhatsApp">Copiar mensaje</button>
+                  <button type="button" data-act="copylink" title="Copia solo el link">Copiar link</button>
+                  <a class="btn" data-wa target="_blank" rel="noopener">Enviar por WhatsApp</a>
+                  <a class="btn" data-open target="_blank" rel="noopener">Abrir invitación</a>
                 </div>
               </div>
             </div>`
@@ -786,6 +789,9 @@
         const wa = row.querySelector("[data-wa]");
         wa.href = "https://wa.me/?text=" + encodeURIComponent(m);
         wa.hidden = !!g.nuevo;
+        const open = row.querySelector("[data-open]");
+        open.href = inviteUrl(g.token);
+        open.hidden = !!g.nuevo;
       });
       const total = guests.reduce((n, g) => n + (Number(g.pases) || 0), 0);
       $("summary").textContent = `${guests.length} ${guests.length === 1 ? "invitado" : "invitados"} · ${plural(total)}`;
