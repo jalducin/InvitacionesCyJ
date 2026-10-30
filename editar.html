@@ -172,7 +172,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261029-4"></script>
+  <script src="common.js?v=20261030-1"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -278,7 +278,7 @@
             <button type="button" data-go="diseno">Diseño</button>
             <button type="button" data-go="efectos">Efectos</button>
             <button type="button" data-go="invitados">Invitados y mensajes</button>
-            ${role === "admin" ? `<button type="button" data-go="acceso">Acceso</button>` : ""}
+            <button type="button" data-go="acceso">Acceso y día del evento</button>
           </nav>
         </header>
 
@@ -490,6 +490,7 @@
           <div class="gview" data-gv="respuestas">
             <div class="gtools">
               <button type="button" class="primary" id="refresh">Actualizar respuestas</button>
+              <button type="button" id="pdf">Descargar PDF</button>
               <button type="button" id="csv">Descargar lista (Excel)</button>
             </div>
           </div>
@@ -499,6 +500,7 @@
             <div class="gtools">
               <button type="button" id="refresh-si">Actualizar respuestas</button>
               <button type="button" id="copy-si">Copiar lista de confirmados</button>
+              <button type="button" id="pdf-si">Descargar PDF</button>
             </div>
           </div>
 
@@ -510,6 +512,24 @@
           </div>
 
           <div id="guests"></div>
+        </section>
+
+        <section class="panel" data-tab="acceso" aria-labelledby="h-door">
+          <h2 id="h-door">Control de acceso el día de la boda</h2>
+          <div class="stack">
+            <p class="hint">La persona en la entrada abre la página de control de acceso en su celular, busca a cada invitado y registra cuántas personas llegaron. Cada invitado que confirmó tiene un código QR en su invitación: al escanearlo con la cámara se abre su registro directo. Varias personas pueden usarla a la vez.</p>
+            <div class="field"><span class="lbl">Página de control de acceso</span><div class="addr" id="door-url"></div></div>
+            <div class="swatches">
+              <a class="btn" id="door-open" target="_blank" rel="noopener">Abrir control de acceso</a>
+              <button type="button" id="door-key">Generar clave de recepción</button>
+              <button type="button" id="door-pdf">Descargar lista en PDF (para papel)</button>
+            </div>
+            <div id="door-out" class="stack" hidden>
+              <div class="field"><span class="lbl">Clave de recepción</span><div class="addr" id="door-val"></div></div>
+              <div class="swatches"><button type="button" id="door-copy-msg">Copiar mensaje para recepción</button></div>
+              <p class="hint">Esta clave solo deja ver la lista y registrar llegadas; no permite editar la invitación. Cópiala ahora: no se vuelve a mostrar. Al generar otra, la anterior deja de servir.</p>
+            </div>
+          </div>
         </section>
 
         ${
@@ -848,6 +868,31 @@
         copyText(list.map((g) => `${g.nombre} — ${plural(g.rsvp_pases || 0).replace("pase", "persona")}`).join("\n") + `\n\nTotal: ${people} ${people === 1 ? "persona" : "personas"}`, "Lista de confirmados copiada");
       };
       $("csv").onclick = downloadCsv;
+      $("pdf").onclick = printList;
+      $("pdf-si").onclick = printList;
+      $("door-pdf").onclick = printList;
+      const doorUrl = () => {
+        const u = new URL("acceso.html", location.href);
+        u.search = `?b=${encodeURIComponent(slug)}`;
+        return u.toString();
+      };
+      $("door-url").textContent = doorUrl();
+      $("door-open").href = doorUrl();
+      $("door-key").onclick = async () => {
+        if (!confirm("¿Generar una clave de recepción nueva? Si ya habías dado una, dejará de servir.")) return;
+        const btn = $("door-key");
+        btn.disabled = true;
+        try {
+          const { clave } = await api({ action: "clave_recepcion", slug, editKey });
+          $("door-val").textContent = clave;
+          $("door-out").hidden = false;
+          $("door-copy-msg").onclick = () =>
+            copyText(`Control de acceso de la boda de ${coupleShort(S)}:\n${doorUrl()}\nClave de recepción: ${clave}\nBusca a cada invitado al llegar y toca "Registrar llegada", o escanea el código QR de su invitación con la cámara.`, "Mensaje copiado");
+        } catch (err) {
+          toast(err.message);
+        }
+        btn.disabled = false;
+      };
       $("copy-all").onclick = () => {
         const list = visibleGuests().filter((g) => g.nombre.trim());
         if (!list.length) return toast("No hay invitados en esta lista");
@@ -1119,9 +1164,9 @@
 
     function yesTable(list) {
       return `<div class="table-wrap"><table class="answers">
-        <thead><tr><th>Invitado</th><th>Personas</th><th>Pases asignados</th><th>Confirmó</th></tr></thead>
+        <thead><tr><th>Invitado</th><th>Personas</th><th>Pases asignados</th><th>Confirmó</th><th>Llegó al evento</th></tr></thead>
         <tbody>${list
-          .map((g) => `<tr class="guest" data-token="${esc(g.token)}"><td>${esc(g.nombre)}</td><td><b>${g.rsvp_pases}</b></td><td>${g.pases}</td><td>${whenShort(g.rsvp_at)}</td></tr>`)
+          .map((g) => `<tr class="guest" data-token="${esc(g.token)}"><td>${esc(g.nombre)}</td><td><b>${g.rsvp_pases}</b></td><td>${g.pases}</td><td>${whenShort(g.rsvp_at)}</td><td>${g.llegaron ? `<span class="tag si">${g.llegaron} · ${new Date(g.llegada_at).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" })}</span>` : "—"}</td></tr>`)
           .join("")}</tbody></table></div>`;
     }
 
@@ -1174,7 +1219,7 @@
           const r = byToken.get(g.token);
           if (!r || g.nuevo) return;
           if (r.rsvp !== g.rsvp || r.rsvp_pases !== g.rsvp_pases) nuevas++;
-          Object.assign(g, { rsvp: r.rsvp, rsvp_pases: r.rsvp_pases, rsvp_at: r.rsvp_at, abierta_at: r.abierta_at });
+          Object.assign(g, { rsvp: r.rsvp, rsvp_pases: r.rsvp_pases, rsvp_at: r.rsvp_at, abierta_at: r.abierta_at, llegada_at: r.llegada_at, llegaron: r.llegaron });
         });
         if (gview === "lista") {
           guests.forEach((g) => {
@@ -1188,6 +1233,71 @@
         toast(err.message);
       }
       btn.disabled = false;
+    }
+
+    // Lista para imprimir o guardar como PDF (el navegador ofrece "Guardar como PDF" al imprimir).
+    function printList() {
+      const saved = guests.filter((g) => !g.nuevo);
+      if (!saved.length) return toast("Guarda a tus invitados para hacer el PDF");
+      const by = (a, b) => a.nombre.localeCompare(b.nombre, "es");
+      const si = saved.filter((g) => g.rsvp === "si").sort(by);
+      const no = saved.filter((g) => g.rsvp === "no").sort(by);
+      const pend = saved.filter((g) => !g.rsvp).sort(by);
+      const people = si.reduce((n, g) => n + (g.rsvp_pases || 0), 0);
+      const d = parseDate(S.date);
+      const rows = (list, cols) => list.map((g, i) => `<tr>${cols(g, i)}</tr>`).join("");
+      const box = `<span class="box"></span>`;
+      const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+        <title>Invitados · ${esc(coupleShort(S))}</title>
+        <link rel="stylesheet" href="${FONTS_HREF}">
+        <style>
+          @page{size:letter;margin:16mm 14mm}
+          *{box-sizing:border-box}
+          body{margin:0;font:11pt/1.4 'Figtree',system-ui,sans-serif;color:#1A1B2E;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          header{text-align:center;padding-bottom:14px;border-bottom:1px solid #E6E2DA;margin-bottom:16px}
+          .k{font-size:8pt;letter-spacing:.3em;text-transform:uppercase;color:#A8325A;margin:0}
+          h1{font:600 28pt/1.1 'Cormorant Garamond',Georgia,serif;margin:6px 0 4px}
+          .sub{color:#5E6180;margin:0}
+          .sum{display:flex;gap:10px;margin:0 0 18px}
+          .sum div{flex:1;border:1px solid #E6E2DA;border-radius:10px;padding:8px 12px;background:#FBFAF7}
+          .sum b{display:block;font-size:18pt}
+          .sum span{font-size:8.5pt;color:#5E6180}
+          h2{font:600 15pt 'Cormorant Garamond',Georgia,serif;margin:18px 0 6px;color:#A8325A}
+          table{width:100%;border-collapse:collapse}
+          th{text-align:left;font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#5E6180;border-bottom:1.5px solid #1A1B2E;padding:6px}
+          td{padding:7px 6px;border-bottom:1px solid #E6E2DA;vertical-align:middle}
+          tr{break-inside:avoid}
+          .n{width:28px;color:#5E6180}
+          .num{text-align:center;width:80px}
+          .box{display:inline-block;width:14px;height:14px;border:1.5px solid #1A1B2E;border-radius:3px}
+          .chk{width:60px;text-align:center}
+          footer{margin-top:24px;text-align:center;font-size:8pt;color:#5E6180}
+          .tip{font-size:9pt;color:#5E6180;margin:0 0 6px}
+        </style></head><body>
+        <header><p class="k">Lista de invitados</p><h1>${esc(coupleShort(S))}</h1>
+          <p class="sub">${[d ? cap(fmtLong.format(d)) : "", S.time ? S.time + " h" : "", S.venue].filter(Boolean).map(esc).join(" · ")}</p></header>
+        <div class="sum">
+          <div><b>${people}</b><span>personas confirmadas</span></div>
+          <div><b>${si.length}</b><span>invitaciones confirmadas</span></div>
+          <div><b>${pend.length}</b><span>sin responder</span></div>
+          <div><b>${no.length}</b><span>no asistirán</span></div>
+        </div>
+        <h2>Confirmados</h2>
+        <p class="tip">Marca la casilla cuando llegue cada invitación.</p>
+        <table><thead><tr><th class="n">#</th><th>Invitado</th><th class="num">Personas</th><th class="num">Pases</th><th class="chk">Llegó</th></tr></thead>
+          <tbody>${rows(si, (g, i) => `<td class="n">${i + 1}</td><td>${esc(g.nombre)}</td><td class="num"><b>${g.rsvp_pases}</b></td><td class="num">${g.pases}</td><td class="chk">${box}</td>`)}</tbody></table>
+        ${pend.length ? `<h2>Sin responder</h2><table><thead><tr><th class="n">#</th><th>Invitado</th><th class="num">Pases</th><th class="chk">Llegó</th></tr></thead>
+          <tbody>${rows(pend, (g, i) => `<td class="n">${i + 1}</td><td>${esc(g.nombre)}</td><td class="num">${g.pases}</td><td class="chk">${box}</td>`)}</tbody></table>` : ""}
+        ${no.length ? `<h2>No asistirán</h2><table><thead><tr><th class="n">#</th><th>Invitado</th><th class="num">Pases</th></tr></thead>
+          <tbody>${rows(no, (g, i) => `<td class="n">${i + 1}</td><td>${esc(g.nombre)}</td><td class="num">${g.pases}</td>`)}</tbody></table>` : ""}
+        <footer>Generado el ${esc(new Date().toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" }))}</footer>
+        <script>document.fonts.ready.then(() => setTimeout(() => print(), 300));<\/script>
+        </body></html>`;
+      const w = window.open("", "_blank");
+      if (!w) return toast("Tu navegador bloqueó la ventana. Permite ventanas emergentes e intenta otra vez.");
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
     }
 
     function downloadCsv() {

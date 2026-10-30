@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Control de acceso</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link id="fonts" rel="stylesheet">
+  <style>
+    :root{--bg:#F4F4F8;--surface:#FFFFFF;--fg:#16182B;--muted:#5E6180;--line:#DCDDE8;--accent:#A8325A;--accent-fg:#FFFFFF;--accent-soft:#F6E3EA;--ok:#1E7A55;--ok-soft:#E3F2EA;--err:#B3261E;color-scheme:light}
+    @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#101224;--surface:#191C33;--fg:#EDEEF7;--muted:#9A9DBD;--line:#2C3052;--accent:#E2678F;--accent-fg:#1A0A12;--accent-soft:#3A1F2C;--ok:#5ACB9A;--ok-soft:#173528;--err:#F2827A;color-scheme:dark}}
+    :root[data-theme="dark"]{--bg:#101224;--surface:#191C33;--fg:#EDEEF7;--muted:#9A9DBD;--line:#2C3052;--accent:#E2678F;--accent-fg:#1A0A12;--accent-soft:#3A1F2C;--ok:#5ACB9A;--ok-soft:#173528;--err:#F2827A;color-scheme:dark}
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;padding:0 max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+    .app{max-width:760px;margin:0 auto}
+    h1{font:600 28px/1.1 'Cormorant Garamond',Georgia,serif;margin:0}
+    button,input{font:inherit;color:inherit}
+    button{cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:10px 14px;font-weight:600}
+    button:disabled{opacity:.55;cursor:default}
+    .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+    .quiet{border-color:transparent;background:transparent;color:var(--muted);font-weight:500}
+    input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+    input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .hint{font-size:14px;color:var(--muted);margin:0}
+    .err{color:var(--err)}
+
+    .top{position:sticky;top:0;z-index:10;background:var(--bg);padding:14px 0 12px;border-bottom:1px solid var(--line)}
+    .top-row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+    .top .sub{font-size:13px;color:var(--muted)}
+    .counters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+    .counter{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+    .counter b{display:block;font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+    .counter span{font-size:12px;color:var(--muted)}
+    .counter.big{background:var(--ok-soft);border-color:transparent}
+    .counter.big b{color:var(--ok)}
+    .search{display:flex;gap:8px}
+    .seg{display:flex;gap:6px;margin-top:10px;overflow-x:auto}
+    .seg button{padding:7px 12px;border-radius:999px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--surface)}
+    .seg button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+    .seg span{opacity:.7;font-variant-numeric:tabular-nums}
+
+    .list{display:grid;gap:10px;margin-top:14px}
+    .row{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:10px}
+    .row.here{border-color:var(--ok);background:linear-gradient(0deg,var(--ok-soft),var(--ok-soft)) padding-box}
+    .row.focus{box-shadow:0 0 0 3px var(--accent)}
+    .row-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .name{font-size:18px;font-weight:600;margin:0}
+    .meta{font-size:14px;color:var(--muted);margin:2px 0 0}
+    .badge{flex:0 0 auto;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+    .badge.ok{color:var(--ok);border-color:currentColor}
+    .badge.warn{color:var(--accent);border-color:currentColor}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+    .stepper button{border:0;border-radius:0;width:44px;padding:10px 0;font-size:18px}
+    .stepper output{min-width:46px;text-align:center;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+    .empty{color:var(--muted);text-align:center;padding:30px 0}
+
+    .login{max-width:420px;margin:14vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:12px}
+    .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:30}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+  </style>
+</head>
+<body>
+  <div class="app" id="root"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="common.js?v=20261030-1"></script>
+  <script>
+    document.getElementById("fonts").href = FONTS_HREF;
+    const $ = (id) => document.getElementById(id);
+    const root = $("root");
+    const qs = new URLSearchParams(location.search);
+    const slug = ((qs.get("b") || "").toLowerCase().match(/^[a-z0-9]+(-[a-z0-9]+)*/) || [""])[0];
+    let focusToken = ((qs.get("g") || "").match(/^[A-Za-z0-9]+/) || [""])[0].slice(0, 24);
+    const KEY_STORE = "acceso-key:" + slug;
+
+    const store = {
+      get: (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+      set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+      del: (k) => { try { localStorage.removeItem(k); } catch {} },
+    };
+
+    let key = "";
+    let boda = {};
+    let guests = [];
+    let filter = "pendientes";
+    let q = "";
+    let editing = new Map(); // token → personas elegidas en el contador
+    let timer = null;
+
+    let toastTimer;
+    function toast(t) {
+      const el = $("toast");
+      el.textContent = t;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+    }
+
+    // ---------- Acceso ----------
+    function showLogin(err) {
+      clearInterval(timer);
+      root.innerHTML = `
+        <form class="login">
+          <h1>Control de acceso</h1>
+          <p class="hint">${slug ? `Boda: <b>${esc(slug)}</b>. ` : ""}Escribe la clave de recepción que te dieron los novios.</p>
+          <input id="k" type="password" autocomplete="current-password" placeholder="Clave" required aria-label="Clave">
+          <button class="primary" type="submit">Entrar</button>
+          <p class="hint err" id="loginErr">${esc(err || "")}</p>
+        </form>`;
+      if (!slug) {
+        $("loginErr").textContent = "Falta la boda en el link (?b=…). Abre el link que te enviaron.";
+        root.querySelector("button").disabled = true;
+        return;
+      }
+      root.querySelector("form").onsubmit = async (e) => {
+        e.preventDefault();
+        root.querySelector("button").disabled = true;
+        await tryLoad($("k").value.trim(), true);
+      };
+    }
+
+    async function tryLoad(k, remember) {
+      try {
+        const d = await api({ action: "acceso_load", slug, editKey: k });
+        key = k;
+        if (remember) store.set(KEY_STORE, k);
+        boda = d.boda || {};
+        guests = d.invitados || [];
+        showList();
+        timer = setInterval(refresh, 15000);
+      } catch (err) {
+        store.del(KEY_STORE);
+        showLogin(err.message);
+      }
+    }
+
+    async function refresh() {
+      if (editing.size) return; // no mover la lista mientras alguien está registrando
+      try {
+        const d = await api({ action: "acceso_load", slug, editKey: key });
+        guests = d.invitados || [];
+        renderList();
+      } catch {}
+    }
+
+    // ---------- Lista ----------
+    const FILTERS = {
+      pendientes: ["Por llegar", (g) => g.rsvp !== "no" && !g.llegaron],
+      llegaron: ["Ya llegaron", (g) => !!g.llegaron],
+      todos: ["Todos", () => true],
+    };
+    const fold = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const hora = (iso) => (iso ? new Date(iso).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" }) : "");
+
+    function showList() {
+      const d = parseDate(boda.date);
+      root.innerHTML = `
+        <header class="top">
+          <div class="top-row">
+            <div><h1>${esc(coupleShort(boda) || "Control de acceso")}</h1>
+              <p class="sub">${[d ? cap(fmtLong.format(d)) : "", boda.venue].filter(Boolean).map(esc).join(" · ")}</p></div>
+            <button type="button" class="quiet" id="logout">Salir</button>
+          </div>
+          <div class="counters" id="counters"></div>
+          <div class="search"><input type="search" id="q" placeholder="Buscar invitado…" aria-label="Buscar invitado" autocomplete="off"></div>
+          <div class="seg" id="filters" role="group" aria-label="Filtrar"></div>
+        </header>
+        <div class="list" id="list"></div>`;
+      $("logout").onclick = () => { store.del(KEY_STORE); key = ""; showLogin(); };
+      $("q").oninput = (e) => { q = e.target.value; renderList(); };
+      $("filters").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-f]");
+        if (b) { filter = b.dataset.f; renderList(); }
+      });
+      $("list").addEventListener("click", onListClick);
+      if (focusToken && guests.some((g) => g.token === focusToken)) filter = "todos";
+      renderList();
+    }
+
+    function renderList() {
+      const confirmed = guests.filter((g) => g.rsvp === "si");
+      const expected = confirmed.reduce((n, g) => n + (g.rsvp_pases || 0), 0);
+      const here = guests.reduce((n, g) => n + (g.llegaron || 0), 0);
+      $("counters").innerHTML = `
+        <div class="counter big"><b>${here}</b><span>personas ya llegaron</span></div>
+        <div class="counter"><b>${Math.max(0, expected - here)}</b><span>confirmadas por llegar</span></div>
+        <div class="counter"><b>${guests.filter((g) => g.llegaron).length}</b><span>invitaciones registradas</span></div>`;
+      $("filters").innerHTML = Object.entries(FILTERS)
+        .map(([k, [l, fn]]) => `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${l} <span>${guests.filter(fn).length}</span></button>`)
+        .join("");
+
+      const qq = fold(q).trim();
+      let list = guests.filter((g) => FILTERS[filter][1](g) && (!qq || fold(g.nombre).includes(qq)));
+      // El invitado del QR escaneado va primero.
+      if (focusToken) list = [...list.filter((g) => g.token === focusToken), ...list.filter((g) => g.token !== focusToken)];
+      $("list").innerHTML = list.length
+        ? list.map(rowHtml).join("")
+        : `<p class="empty">${qq ? "Nadie coincide con la búsqueda." : filter === "pendientes" ? "¡Ya llegaron todos los confirmados!" : "No hay invitados aquí."}</p>`;
+      if (focusToken) {
+        root.querySelector(`.row[data-token="${focusToken}"]`)?.scrollIntoView({ block: "center" });
+      }
+    }
+
+    function rowHtml(g) {
+      const max = g.pases;
+      const def = g.llegaron || (g.rsvp === "si" ? g.rsvp_pases : g.pases) || 1;
+      const n = editing.get(g.token);
+      const badge = g.llegaron
+        ? `<span class="badge ok">Llegó · ${g.llegaron} ${g.llegaron === 1 ? "persona" : "personas"}</span>`
+        : g.rsvp === "si"
+        ? `<span class="badge">Confirmó ${g.rsvp_pases} de ${g.pases}</span>`
+        : g.rsvp === "no"
+        ? `<span class="badge warn">Dijo que no asistiría</span>`
+        : `<span class="badge warn">No confirmó</span>`;
+      const actions =
+        n !== undefined
+          ? `<div class="stepper" aria-label="Personas que llegaron">
+               <button type="button" data-a="menos" aria-label="Una persona menos">−</button>
+               <output>${n}</output>
+               <button type="button" data-a="mas" aria-label="Una persona más">+</button>
+             </div>
+             <button type="button" class="primary" data-a="guardar">Registrar ${n} ${n === 1 ? "persona" : "personas"}</button>
+             <button type="button" class="quiet" data-a="cancelar">Cancelar</button>`
+          : g.llegaron
+          ? `<span class="hint">a las ${esc(hora(g.llegada_at))}</span>
+             <button type="button" data-a="editar" data-n="${def}">Cambiar</button>
+             <button type="button" class="quiet" data-a="deshacer">Deshacer</button>`
+          : `<button type="button" class="primary" data-a="editar" data-n="${Math.min(def, max)}">Registrar llegada</button>`;
+      return `<div class="row${g.llegaron ? " here" : ""}${g.token === focusToken ? " focus" : ""}" data-token="${esc(g.token)}">
+        <div class="row-head"><div><p class="name">${esc(g.nombre)}</p><p class="meta">${plural(g.pases)} en su invitación</p></div>${badge}</div>
+        <div class="actions">${actions}</div>
+      </div>`;
+    }
+
+    async function onListClick(e) {
+      const b = e.target.closest("[data-a]");
+      if (!b) return;
+      const token = b.closest(".row").dataset.token;
+      const g = guests.find((x) => x.token === token);
+      if (!g) return;
+      const a = b.dataset.a;
+      if (a === "editar") editing.set(token, Number(b.dataset.n) || 1);
+      if (a === "mas") editing.set(token, Math.min(g.pases, editing.get(token) + 1));
+      if (a === "menos") editing.set(token, Math.max(1, editing.get(token) - 1));
+      if (a === "cancelar") editing.delete(token);
+      if (a === "guardar" || a === "deshacer") {
+        const n = a === "guardar" ? editing.get(token) : 0;
+        if (a === "deshacer" && !confirm(`¿Quitar la llegada de ${g.nombre}?`)) return;
+        b.disabled = true;
+        try {
+          const r = await api({ action: "checkin", slug, editKey: key, token, personas: n });
+          g.llegaron = r.llegaron;
+          g.llegada_at = r.llegada_at;
+          editing.delete(token);
+          if (token === focusToken) focusToken = "";
+          toast(n ? `✓ ${g.nombre}: ${n} ${n === 1 ? "persona" : "personas"}` : `Se quitó la llegada de ${g.nombre}`);
+        } catch (err) {
+          toast(err.message);
+          b.disabled = false;
+          return;
+        }
+      }
+      renderList();
+    }
+
+    // Quien ya entró al editor en este celular no necesita escribir otra clave.
+    const savedKey = store.get(KEY_STORE) || store.get("edit-key:" + slug);
+    if (slug && savedKey) tryLoad(savedKey, false);
+    else showLogin();
+  </script>
+</body>
+</html>

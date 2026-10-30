@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // Esta función se autentica sola: los invitados con su token único y el editor con una clave.
-// Hay dos tipos de clave: la de la pareja (abre solo su boda) y la de super admin (abre todas).
+// Hay tres tipos de clave: super admin (abre todas las bodas), pareja (abre la suya) y
+// recepción (solo ve la lista y registra quién llegó al evento).
 // Por eso verify_jwt está desactivado.
 const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
@@ -48,19 +49,26 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max
 
 async function boda(slug: unknown) {
   if (typeof slug !== "string" || !SLUG.test(slug)) return null;
-  const { data } = await sb.from("bodas").select("id, slug, edit_key_hash, config").eq("slug", slug).maybeSingle();
+  const { data } = await sb.from("bodas").select("id, slug, edit_key_hash, checkin_key_hash, config").eq("slug", slug).maybeSingle();
   return data;
 }
 
-// Devuelve la boda y el rol de quien edita ("admin" o "pareja"), o null si la clave no sirve.
-async function bodaEditable(slug: unknown, key: unknown) {
+// Devuelve la boda y el rol de la clave ("admin", "pareja" o "recepcion"), o null si no sirve.
+async function bodaConClave(slug: unknown, key: unknown) {
   const b = await boda(slug);
   if (!b || typeof key !== "string" || key.length < 16 || key.length > 128) return null;
   const h = await sha256(key);
   const { data: admin } = await sb.from("boda_admins").select("id").eq("key_hash", h).maybeSingle();
   if (admin) return { b, role: "admin" as const };
   if (h === b.edit_key_hash) return { b, role: "pareja" as const };
+  if (b.checkin_key_hash && h === b.checkin_key_hash) return { b, role: "recepcion" as const };
   return null;
+}
+
+// Solo admin y pareja pueden editar; la clave de recepción no.
+async function bodaEditable(slug: unknown, key: unknown) {
+  const a = await bodaConClave(slug, key);
+  return a && a.role !== "recepcion" ? a : null;
 }
 
 Deno.serve(async (req) => {
@@ -129,7 +137,7 @@ Deno.serve(async (req) => {
         if (!a) return json({ error: "Clave de edición incorrecta" }, 403);
         const { data: gs, error } = await sb
           .from("boda_invitados")
-          .select("token, nombre, pases, rsvp, rsvp_pases, rsvp_at, abierta_at")
+          .select("token, nombre, pases, rsvp, rsvp_pases, rsvp_at, abierta_at, llegada_at, llegaron")
           .eq("boda_id", a.b.id)
           .order("created_at", { ascending: true });
         if (error) throw error;
@@ -148,6 +156,55 @@ Deno.serve(async (req) => {
           .eq("id", a.b.id);
         if (error) throw error;
         return json({ ok: true, clave: key });
+      }
+
+      // ---- Admin o pareja: genera la clave de recepción (la anterior deja de servir) ----
+      case "clave_recepcion": {
+        const a = await bodaEditable(body.slug, body.editKey);
+        if (!a) return json({ error: "Clave de edición incorrecta" }, 403);
+        const key = rand(32);
+        const { error } = await sb.from("bodas").update({ checkin_key_hash: await sha256(key) }).eq("id", a.b.id);
+        if (error) throw error;
+        return json({ ok: true, clave: key });
+      }
+
+      // ---- Control de acceso: lista para la entrada del evento ----
+      case "acceso_load": {
+        const a = await bodaConClave(body.slug, body.editKey);
+        if (!a) return json({ error: "Clave incorrecta" }, 403);
+        const { data: gs, error } = await sb
+          .from("boda_invitados")
+          .select("token, nombre, pases, rsvp, rsvp_pases, llegada_at, llegaron")
+          .eq("boda_id", a.b.id)
+          .order("nombre", { ascending: true });
+        if (error) throw error;
+        const c = (a.b.config ?? {}) as Record<string, unknown>;
+        return json({
+          role: a.role,
+          boda: { n1: c.n1 ?? "", n2: c.n2 ?? "", date: c.date ?? "", time: c.time ?? "", venue: c.venue ?? "" },
+          invitados: gs,
+        });
+      }
+
+      // ---- Control de acceso: registra cuántas personas llegaron (0 lo deshace) ----
+      case "checkin": {
+        const a = await bodaConClave(body.slug, body.editKey);
+        if (!a) return json({ error: "Clave incorrecta" }, 403);
+        const token = body.token;
+        if (typeof token !== "string" || !TOKEN.test(token)) return json({ error: "Invitado no encontrado" }, 404);
+        const { data: g } = await sb
+          .from("boda_invitados")
+          .select("id, pases")
+          .eq("boda_id", a.b.id)
+          .eq("token", token)
+          .maybeSingle();
+        if (!g) return json({ error: "Invitado no encontrado" }, 404);
+        const n = Math.floor(Number(body.personas));
+        if (!Number.isFinite(n) || n < 0 || n > g.pases) return json({ error: `Pueden llegar de 0 a ${g.pases} personas` }, 400);
+        const llegada_at = n ? new Date().toISOString() : null;
+        const { error } = await sb.from("boda_invitados").update({ llegaron: n || null, llegada_at }).eq("id", g.id);
+        if (error) throw error;
+        return json({ ok: true, llegaron: n || null, llegada_at });
       }
 
       // ---- Editor: guarda la boda y sincroniza invitados ----

@@ -27,6 +27,11 @@
     .rsvp-slot .ghost{margin-top:14px;padding:9px 18px;border-radius:999px;border:1px solid #A8325A;background:transparent;color:#A8325A;font:500 .85rem "Figtree",sans-serif;cursor:pointer}
     .rsvp-slot .note-small{margin:10px 0 0;font-size:.82rem;color:#5E6180}
     .rsvp-slot form .note-small{margin:0}
+    .pass{max-width:300px;margin:22px auto 0;padding:20px;border:1px solid #E6E2DA;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(26,27,46,.08)}
+    .pass-k{margin:0 0 12px;font:600 11px/1 "Figtree",sans-serif;letter-spacing:.28em;text-transform:uppercase;color:#A8325A}
+    .pass-qr{width:200px;margin:0 auto;background:#fff;padding:10px;border-radius:10px}
+    .pass-qr svg{display:block;width:100%;height:auto}
+    .pass-name{margin:12px 0 4px;font:600 18px/1.2 "Cormorant Garamond",Georgia,serif;color:#1A1B2E}
     .rsvp-slot .msg{min-height:1.2em;margin:0;font-size:.85rem}
     .rsvp-slot .msg.err{color:#A3302A}
     .rsvp-slot .done{font:500 1.25rem/1.4 "Cormorant Garamond",Georgia,serif;margin:0}
@@ -34,7 +39,8 @@
 </head>
 <body>
   <div id="app"><div class="state"><div class="spinner"></div><p>Cargando tu invitación…</p></div></div>
-  <script src="common.js?v=20261029-4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
+  <script src="common.js?v=20261030-1"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const style = document.createElement("style");
@@ -52,12 +58,28 @@
       app.innerHTML = `<div class="state"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>`;
     }
 
+    // Pase de entrada: un QR que en la recepción abre el registro de llegada de este invitado.
+    function passHtml(g) {
+      if (typeof qrcode !== "function") return "";
+      const u = new URL("acceso.html", location.href);
+      u.search = `?b=${encodeURIComponent(slug)}&g=${encodeURIComponent(token)}`;
+      const qr = qrcode(0, "M");
+      qr.addData(u.toString());
+      qr.make();
+      return `<div class="pass">
+        <p class="pass-k">Tu pase de entrada</p>
+        <div class="pass-qr">${qr.createSvgTag(5, 0)}</div>
+        <p class="pass-name">${esc(g.nombre)} · ${plural(g.rsvp_pases)}</p>
+        <p class="note-small">Muéstralo en la entrada el día de la boda. Puedes tomarle captura de pantalla.</p>
+      </div>`;
+    }
+
     function rsvpHtml(g) {
       if (g.rsvp === "si" || g.rsvp === "no") {
         const text = g.rsvp === "si"
           ? `¡Gracias! Confirmaste ${plural(g.rsvp_pases)}.`
           : "Gracias por avisarnos. Te vamos a extrañar.";
-        return `<h2>Confirmación</h2><p class="done">${text}</p><p class="note-small">Si necesitas cambiar tu respuesta, avísales a los novios.</p>`;
+        return `<h2>Confirmación</h2><p class="done">${text}</p>${g.rsvp === "si" ? passHtml(g) : ""}<p class="note-small">Si necesitas cambiar tu respuesta, avísales a los novios.</p>`;
       }
       const opts = Array.from({ length: g.pases }, (_, i) => i + 1)
         .map((n) => `<option value="${n}" ${n === g.pases ? "selected" : ""}>${plural(n)}</option>`)
