@@ -165,9 +165,20 @@ function mountGate(c, onOpen, onTap) {
     // Sobre de papel kraft a pantalla completa con sello de cera; adentro, la tarjeta con la foto de la pareja.
     const photo = (c.bgKind === "image" && safeUrl(c.image)) || (c.photos || []).map(safeUrl).find(Boolean) || "";
     const bg = photo ? `background-image:url("${encodeURI(photo).replace(/'/g, "%27")}")` : `background:${(PRESETS[c.preset] || PRESETS.jardin).css}`;
+    const d = parseDate(c.date);
+    const month = d ? new Intl.DateTimeFormat("es-MX", { month: "long" }).format(d) : "";
     gate.innerHTML = `
       <div class="k-card"><div class="k-photo" style='${bg}'></div>
-        <div class="k-txt"><small>Nos casamos</small><b>${esc(coupleShort(c))}</b></div></div>
+        <div class="k-txt">
+          <p class="k-script">Nuestra boda</p>
+          <p class="k-small">Junto con nuestras familias</p>
+          <p class="k-names">${esc(coupleShort(c))}</p>
+          ${
+            d
+              ? `<p class="k-date"><span>${esc(month)}</span><b>${d.getDate()}</b><span>${d.getFullYear()}</span>${c.time ? `<i></i><span>${esc(t12(c.time))}</span>` : ""}</p>`
+              : ""
+          }
+        </div></div>
       <div class="k-wrap k-left"><div class="k-flap"></div></div>
       <div class="k-wrap k-right"><div class="k-flap"></div></div>
       <div class="k-wrap k-bottom"><div class="k-flap"></div></div>
@@ -189,16 +200,24 @@ function mountGate(c, onOpen, onTap) {
   } else {
     gate.innerHTML = `<p class="gate-k">Estás invitado a la boda de</p><h2 class="gate-names">${esc(coupleShort(c))}</h2><button type="button" class="gate-btn">Toca para entrar</button>`;
   }
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    gate.classList.add("leaving");
+    if (onOpen) setTimeout(onOpen, 100);
+    setTimeout(() => gate.remove(), 800);
+  };
   const open = () => {
-    if (gate.classList.contains("opening")) return;
+    // En el sobre kraft, un segundo toque se salta la pausa con la tarjeta.
+    if (gate.classList.contains("opening")) return c.intro === "kraft" && finish();
     gate.classList.add("opening");
     if (onTap) onTap();
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Cuánto dura la apertura antes de mostrar la invitación, según la entrada.
-    const t = still || c.intro === "simple" ? 0 : c.intro === "kraft" ? 2200 : 1400;
-    if (onOpen) setTimeout(onOpen, t ? t + 100 : 0);
-    setTimeout(() => gate.classList.add("leaving"), t);
-    setTimeout(() => gate.remove(), t + 800);
+    // El kraft se queda abierto a medias unos segundos para lucir la tarjeta con el sobre.
+    const t = still || c.intro === "simple" ? 0 : c.intro === "kraft" ? 4600 : 1400;
+    setTimeout(finish, t);
   };
   gate.addEventListener("click", open);
   gate.addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && open());
@@ -863,29 +882,40 @@ const INVITATION_CSS = `
 .gate-env.opening .gate-k,.gate-env.opening .gate-names{opacity:0}
 @media (prefers-reduced-motion: reduce){.gate .gate-tap,.env-seal{animation:none}.env-letter,.env-flap{transition:none}}
 .gate-kraft{padding:0;background:#2a2118;backdrop-filter:none;overflow:hidden}
-.k-card{position:absolute;inset:5% 7%;border-radius:10px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.45);transform:scale(.94);transition:transform 1.2s cubic-bezier(.2,.7,.2,1) .5s;display:flex;align-items:flex-end;justify-content:center}
-.k-card .k-photo{position:absolute;inset:0;background-size:cover;background-position:center}
-.k-card .k-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(15,12,10,.65))}
-.k-card .k-txt{position:relative;padding:0 20px 9%;text-align:center;color:#fff}
-.k-card .k-txt small{display:block;font:600 10px/1 'Figtree',sans-serif;letter-spacing:.34em;text-transform:uppercase;opacity:.9;margin-bottom:10px}
-.k-card .k-txt b{display:block;font:600 clamp(30px,9vw,44px)/1.05 'Cormorant Garamond',Georgia,serif}
-.k-wrap{position:absolute;inset:0;filter:drop-shadow(0 2px 6px rgba(40,24,8,.35));transition:transform 1s cubic-bezier(.6,.05,.3,1)}
+.k-card{position:absolute;inset:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.k-card .k-photo{position:absolute;inset:0;background-size:cover;background-position:center 30%;filter:grayscale(1) contrast(1.05);transform:scale(1.08);transition:transform 4s ease-out .3s}
+.k-card .k-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 38%,rgba(250,248,244,.55) 58%,rgba(250,248,244,.94) 76%)}
+.k-txt{position:relative;width:100%;padding:0 24px calc(10% + env(safe-area-inset-bottom,0px));text-align:center;color:#2B2622}
+.k-txt p{margin:0;opacity:0;transform:translateY(12px);transition:opacity .9s ease,transform .9s ease}
+.k-script{font:400 clamp(48px,15vw,72px)/1 'Great Vibes',cursive;margin-bottom:6px!important}
+.k-small{font:600 10px/1 'Figtree',sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#6B6156;margin-bottom:10px!important}
+.k-names{font:500 clamp(26px,7.5vw,34px)/1.1 'Cormorant Garamond',Georgia,serif;margin-bottom:14px!important}
+.k-date{display:flex;align-items:center;justify-content:center;gap:10px;font:600 11px/1 'Figtree',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:#6B6156}
+.k-date b{font:500 34px/1 'Cormorant Garamond',Georgia,serif;letter-spacing:0;color:#2B2622}
+.k-date i{width:1px;height:28px;background:#6B6156;opacity:.6}
+.gate-kraft.opening .k-photo{transform:scale(1)}
+.gate-kraft.opening .k-txt p{opacity:1;transform:none}
+.gate-kraft.opening .k-script{transition-delay:1.1s}
+.gate-kraft.opening .k-small{transition-delay:1.35s}
+.gate-kraft.opening .k-names{transition-delay:1.55s}
+.gate-kraft.opening .k-date{transition-delay:1.75s}
+.k-wrap{position:absolute;inset:0;filter:drop-shadow(0 3px 8px rgba(40,24,8,.4));transition:transform 1.1s cubic-bezier(.6,.05,.3,1)}
 .k-flap{position:absolute;inset:0;background-color:#C9A57B;background-image:radial-gradient(rgba(90,60,25,.16) 1px,transparent 1.2px),radial-gradient(rgba(255,255,255,.12) 1px,transparent 1.3px),linear-gradient(var(--k-dir,180deg),#D4B389,#BE9868);background-size:7px 7px,11px 11px,100% 100%;background-position:0 0,3px 5px,0 0}
 .k-top .k-flap{--k-dir:180deg;clip-path:polygon(0 0,100% 0,50% 54%)}
 .k-bottom .k-flap{--k-dir:0deg;clip-path:polygon(0 100%,100% 100%,50% 46%)}
 .k-left .k-flap{--k-dir:90deg;clip-path:polygon(0 0,53% 50%,0 100%)}
-.k-right .k-flap{--k-dir:270deg;clip-path:polygon(100% 0,47% 50%,100% 100%)}
+.k-right .k-flap{--k-dir:270deg;clip-path:polygon(100% 0,47% 50%,100% 100%);background-color:#1F1C1A;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1.2px),linear-gradient(270deg,#2A2624,#141210);background-size:6px 6px,100% 100%}
 .k-top{z-index:4}.k-bottom{z-index:3}.k-left,.k-right{z-index:2}
-.k-seal{position:absolute;z-index:6;left:50%;top:50%;width:104px;height:104px;margin:-52px 0 0 -52px;padding:0;border:0;cursor:pointer;color:#7A5A1E;background:radial-gradient(circle at 34% 30%,#F6DD9A,#D9AE55 45%,#A9802F 80%);border-radius:47% 53% 50% 50%/52% 48% 52% 48%;box-shadow:0 6px 14px rgba(0,0,0,.4),inset 0 0 0 7px rgba(255,255,255,.08),inset 0 0 0 9px rgba(122,90,30,.35),inset 0 -6px 12px rgba(110,78,20,.45);display:flex;align-items:center;justify-content:center;transition:transform .5s ease,opacity .5s ease;animation:seal-bob 2.4s ease-in-out infinite}
+.k-seal{position:absolute;z-index:6;left:50%;top:50%;width:104px;height:104px;margin:-52px 0 0 -52px;padding:0;border:0;cursor:pointer;color:#7A5A1E;background:radial-gradient(circle at 34% 30%,#F6DD9A,#D9AE55 45%,#A9802F 80%);border-radius:47% 53% 50% 50%/52% 48% 52% 48%;box-shadow:0 6px 14px rgba(0,0,0,.4),inset 0 0 0 7px rgba(255,255,255,.08),inset 0 0 0 9px rgba(122,90,30,.35),inset 0 -6px 12px rgba(110,78,20,.45);display:flex;align-items:center;justify-content:center;transition:transform 1.1s cubic-bezier(.4,.1,.2,1),opacity .5s ease;animation:seal-bob 2.4s ease-in-out infinite}
 .k-seal svg{width:52px;height:52px;stroke-width:1.4;filter:drop-shadow(0 1px 0 rgba(255,240,200,.6))}
 .k-tap{position:absolute;z-index:6;left:0;right:0;bottom:calc(8% + env(safe-area-inset-bottom,0px));margin:0;text-align:center;color:#fff;font-size:.85rem;letter-spacing:.12em;text-shadow:0 1px 4px rgba(0,0,0,.6);animation:gate-pulse 1.8s ease-in-out infinite}
-.gate-kraft.opening .k-seal{animation:none;transform:scale(1.25) rotate(-8deg);opacity:0}
+/* Abierto a medias: arriba y abajo salen, la izquierda (kraft) y la derecha (negra) se quedan en las orillas y el sello queda sobre la foto. */
+.gate-kraft.opening .k-seal{animation:none;transform:translate(min(22vw,150px),6vh) scale(.82) rotate(-10deg)}
 .gate-kraft.opening .k-tap{opacity:0;animation:none}
-.gate-kraft.opening .k-top{transform:translateY(-105%);transition-delay:.35s}
-.gate-kraft.opening .k-bottom{transform:translateY(105%);transition-delay:.55s}
-.gate-kraft.opening .k-left{transform:translateX(-105%);transition-delay:.75s}
-.gate-kraft.opening .k-right{transform:translateX(105%);transition-delay:.75s}
-.gate-kraft.opening .k-card{transform:scale(1)}
+.gate-kraft.opening .k-top{transform:translateY(-105%);transition-delay:.2s}
+.gate-kraft.opening .k-right{transform:translateX(38%) rotate(4deg);transition-delay:.45s}
+.gate-kraft.opening .k-left{transform:translateX(-36%) rotate(-5deg);transition-delay:.6s}
+.gate-kraft.opening .k-bottom{transform:translateY(105%);transition-delay:.75s}
 @media (prefers-reduced-motion: reduce){.k-seal,.k-tap{animation:none}.k-wrap,.k-card{transition:none}}
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(8,9,20,.92);display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;animation:inv-fade .25s ease}
 @keyframes inv-fade{from{opacity:0}}
@@ -894,4 +924,4 @@ const INVITATION_CSS = `
 `;
 
 const FONTS_HREF =
-  "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Figtree:wght@400;500;600&display=swap";
+  "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Figtree:wght@400;500;600&family=Great+Vibes&display=swap";
