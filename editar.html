@@ -172,7 +172,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261030-1"></script>
+  <script src="common.js?v=20261031-1"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -920,7 +920,7 @@
         }
       };
       $("venue-remove").onclick = () => { S.venuePhoto = null; changed(); syncControls(); renderPreview(); };
-      $("intro-test").onclick = () => mountGate(S);
+      $("intro-test").onclick = () => mountGate(S, null, () => { player.set(S); player.play(); });
       [["fx", FX], ["fxSpeed", FX_SPEED], ["particles", PARTICLES], ["intro", INTROS]].forEach(([id, opts]) => {
         $(id).innerHTML = Object.entries(opts)
           .map(([v, l]) => `<button type="button" data-v="${v}">${esc(Array.isArray(l) ? l[0] : l)}</button>`)
