@@ -100,6 +100,7 @@ const DEFAULT_CONFIG = {
   // Diseño
   theme: "floral", // "floral": fondo beige con marco de flores blancas y sobre rosa; "clasico": el fondo elegido
   bow: true, // novios chibi en la portada (diseño floral)
+  chibiImg: "novios.webp", // imagen de los novios chibi (archivo del sitio o link https); vacío = el dibujo incluido
   coverNames: "Jesús & Cynthia", // lo único que dice el sobre y la portada en el diseño floral
   qrOn: false, // pase de entrada con código QR al confirmar
   endText: "Lo nuestro siempre fue amor, y nuestra mayor alegría será compartirlo contigo", // cierre de la invitación; vacío = nombres y año
@@ -526,7 +527,7 @@ function renderInvitation(c, guest) {
           ${cn2 ? `<span class="amp in" style="--d:.45s">&amp;</span>
           <span class="in" style="--d:.6s">${esc(cn2)}</span>` : ""}
         </h1>
-        ${floral ? `${c.bow ? `<div class="chibi-wrap in" style="--d:.9s">${CHIBI_SVG}</div>` : ""}` : `
+        ${floral ? `${c.bow ? `<div class="chibi-wrap in" style="--d:.9s">${mediaUrl(c.chibiImg) ? `<img class="chibi" src="${esc(mediaUrl(c.chibiImg))}" alt="Los novios">` : CHIBI_SVG}</div>` : ""}` : `
         <div class="rule in" style="--d:.8s"></div>
         <div class="date in" style="--d:.9s">${d ? esc(cap(fmtLong.format(d))) : "Fecha por definir"}</div>
         ${c.time ? `<div class="meta in" style="--d:1s">${esc(c.time)} h</div>` : ""}
@@ -1158,7 +1159,8 @@ const INVITATION_CSS = `
 .inv.floral .amp{font:400 clamp(30px,9vw,40px)/1 'Great Vibes',cursive;font-style:normal;opacity:.7}
 .inv.floral .full{margin:2px 0 0;font:500 15px/1.35 'Cormorant Garamond',Georgia,serif;text-wrap:balance;opacity:.9}
 .inv.floral .chibi-wrap{margin:10px 0 0}
-.inv.floral .chibi{display:block;width:clamp(150px,46vw,220px);height:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.inv.floral .chibi{display:block;width:clamp(170px,52vw,260px);height:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.inv.floral img.chibi{width:clamp(180px,56vw,290px)}
 .inv.floral .card .inner{gap:4px}
 .inv .pases-end{display:inline-block;margin:0 0 22px;padding:9px 18px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:14px;color:var(--paper-ink)}
 .inv .end-text{max-width:28ch;margin:0 auto;font:italic 500 clamp(22px,6vw,28px)/1.4 'Cormorant Garamond',Georgia,serif;text-wrap:balance}
