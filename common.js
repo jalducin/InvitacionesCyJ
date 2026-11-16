@@ -23,10 +23,10 @@ async function api(body) {
 
 // Fondos de la portada. `tone` es el color del texto que mejor se lee encima.
 const PRESETS = {
-  rosa: {
-    label: "Rosa floral",
+  floral: {
+    label: "Beige floral",
     tone: "dark",
-    css: "radial-gradient(80% 55% at 50% 42%, #FCF4F2 0%, transparent 70%), linear-gradient(180deg, #F5E4E1 0%, #F0DAD7 100%)",
+    css: "radial-gradient(80% 55% at 50% 42%, #FBF8F2 0%, transparent 70%), linear-gradient(180deg, #F3EBDF 0%, #EADFCF 100%)",
   },
   jardin: {
     label: "Jardín",
@@ -98,14 +98,17 @@ const DEFAULT_CONFIG = {
   particles: "none", // "none", "petalos", "corazones", "destellos" o "sobres"
   intro: "sobre", // pantalla de entrada: "sobre" (con iniciales) o "simple"
   // Diseño
-  theme: "rosa", // "rosa": fondo rosa con marco de flores blancas y rosas (como el reel); "clasico": el fondo elegido
-  bow: true, // moño rosa en la portada (diseño rosa)
+  theme: "floral", // "floral": fondo beige con marco de flores blancas y sobre rosa; "clasico": el fondo elegido
+  bow: true, // novios chibi en la portada (diseño floral)
+  coverNames: "Jesús & Cynthia", // lo único que dice el sobre y la portada en el diseño floral
+  qrOn: false, // pase de entrada con código QR al confirmar
+  endText: "Lo nuestro siempre fue amor, y nuestra mayor alegría será compartirlo contigo", // cierre de la invitación; vacío = nombres y año
   menu: true, // menú fijo abajo para brincar entre secciones
   coverVideoOn: true, // video en movimiento, sin sonido, de fondo en la portada
   coverVideo: "portada.mp4", // archivo del repositorio (portada.mp4) o link https a un .mp4
   coverPoster: "portada.jpg", // imagen que se ve mientras carga el video
 };
-const THEMES = { rosa: "Rosa floral", clasico: "Clásico (el fondo que elijas)" };
+const THEMES = { floral: "Beige floral", clasico: "Clásico (el fondo que elijas)" };
 
 // ---------- Íconos del programa ----------
 const ICON_PATHS = {
@@ -173,7 +176,7 @@ function initials(c) {
 function mountGate(c, onOpen, onTap) {
   c = normalizeConfig(c);
   const gate = document.createElement("div");
-  gate.className = "gate" + (c.intro === "sobre" ? " gate-env" : c.intro === "kraft" ? " gate-kraft" : "") + (c.theme === "rosa" ? " rosa" : "");
+  gate.className = "gate" + (c.intro === "sobre" ? " gate-env" : c.intro === "kraft" ? " gate-kraft" : "") + (c.theme === "floral" ? " floral" : "");
   if (c.intro === "kraft") {
     // Sobre de papel kraft a pantalla completa con sello de cera; adentro, la tarjeta con la foto de la pareja.
     const photo = (c.bgKind === "image" && safeUrl(c.image)) || (c.photos || []).map(safeUrl).find(Boolean) || "";
@@ -198,6 +201,19 @@ function mountGate(c, onOpen, onTap) {
       <div class="k-wrap k-top"><div class="k-flap"></div></div>
       <button type="button" class="k-seal" aria-label="Abrir la invitación">${iconSvg("anillos")}</button>
       <p class="k-tap">Toca el sello para abrir</p>`;
+  } else if (c.intro === "sobre" && c.theme === "floral") {
+    const [a, b] = coverPair(c);
+    const ini = [a, b].filter(Boolean).map((x) => x.charAt(0).toUpperCase()).join(" & ") || "♥";
+    gate.innerHTML = `
+      <h2 class="gate-names">${esc(coverText(c))}</h2>
+      <div class="env" role="button" tabindex="0" aria-label="Abrir la invitación">
+        <div class="env-back"></div>
+        <div class="env-letter"><span>${esc(coverText(c))}</span></div>
+        <div class="env-pocket"></div>
+        <div class="env-flap"></div>
+        <div class="env-seal">${esc(ini)}</div>
+      </div>
+      <p class="gate-tap">Toca el sello para abrir</p>`;
   } else if (c.intro === "sobre") {
     gate.innerHTML = `
       <p class="gate-k">Estás invitado a la boda de</p>
@@ -266,7 +282,8 @@ function normalizeConfig(c) {
   if (!FX_SPEED[c.fxSpeed]) c.fxSpeed = "normal";
   if (!PARTICLES[c.particles]) c.particles = "none";
   if (!INTROS[c.intro]) c.intro = "sobre";
-  if (!THEMES[c.theme]) c.theme = "rosa";
+  if (c.theme === "rosa") c.theme = "floral";
+  if (!THEMES[c.theme]) c.theme = "floral";
   return c;
 }
 
@@ -280,6 +297,19 @@ const plural = (n) => (n === 1 ? "1 pase" : `${n} pases`);
 function shortName(full) {
   const p = String(full || "").trim().split(/\s+/);
   return p[1] && /^(de|del)$/i.test(p[1]) && p[2] ? p.slice(0, 3).join(" ") : p[0] || "";
+}
+
+// "Jesús & Cynthia" → ["Jesús", "Cynthia"]; si está vacío, los nombres cortos de la pareja.
+function coverPair(c) {
+  const t = String(c.coverNames || "").trim();
+  if (t) {
+    const p = t.split(/\s+(?:&|y)\s+/i);
+    return p.length > 1 ? [p[0], p.slice(1).join(" & ")] : [t, ""];
+  }
+  return [shortName(c.n1), shortName(c.n2)];
+}
+function coverText(c) {
+  return coverPair(c).filter(Boolean).join(" & ");
 }
 
 function coupleShort(c) {
@@ -347,10 +377,10 @@ function mediaUrl(u) {
   return safeUrl(u);
 }
 
-// ---------- Marco de flores (diseño rosa) ----------
-// Tira vertical de rosas blancas y rosa claro con hojas, botones y perlas. Se repite hacia abajo a cada lado.
+// ---------- Marco de flores (diseño floral) ----------
+// Tira vertical de rosas blancas con hojas beige, botones y perlas. Se repite hacia abajo a cada lado.
 function floralStrip(mirror) {
-  const W = ["#FFFDFC", "#F6ECEA", "#DDBDBC"], P = ["#F7D7D7", "#EDBBBE", "#D49BA0"];
+  const W = ["#FFFFFF", "#F6F1E8", "#D3C4AE"], P = ["#FFFDF8", "#EFE7DA", "#C9B89F"];
   let seed = 7;
   const rnd = () => ((seed = (seed * 9301 + 49297) % 233280), seed / 233280);
   const f = (n) => Math.round(n * 10) / 10;
@@ -367,10 +397,10 @@ function floralStrip(mirror) {
     `<path d="M${f(x - r * 0.2)} ${f(y + r * 0.02)}a${f(r * 0.2)} ${f(r * 0.2)} 0 1 1 ${f(r * 0.32)} ${f(r * 0.12)}" fill="none" stroke="${c[2]}" stroke-width=".7"/>`;
   const leaf = (x, y, len, ang, light) => {
     const w = len * 0.32;
-    return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})"><path d="M0 0Q${f(len / 2)} ${f(-w)} ${f(len)} 0Q${f(len / 2)} ${f(w)} 0 0Z" fill="${light ? "#F8E6E3" : "#EECFCC"}" stroke="#D5AAA9" stroke-width=".6"/><path d="M1 0L${f(len * 0.85)} 0" stroke="#D5AAA9" stroke-width=".5"/></g>`;
+    return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})"><path d="M0 0Q${f(len / 2)} ${f(-w)} ${f(len)} 0Q${f(len / 2)} ${f(w)} 0 0Z" fill="${light ? "#F7F1E7" : "#EAE0D0"}" stroke="#C9B9A2" stroke-width=".6"/><path d="M1 0L${f(len * 0.85)} 0" stroke="#C9B9A2" stroke-width=".5"/></g>`;
   };
   const bud = (x, y, ang, c) =>
-    `<g transform="translate(${x} ${y}) rotate(${ang})"><path d="M0 0C3 -2 4 -7 0 -11C-4 -7 -3 -2 0 0Z" fill="${c[0]}" stroke="${c[2]}" stroke-width=".6"/><path d="M0 1L0 7" stroke="#D5AAA9" stroke-width=".7"/></g>`;
+    `<g transform="translate(${x} ${y}) rotate(${ang})"><path d="M0 0C3 -2 4 -7 0 -11C-4 -7 -3 -2 0 0Z" fill="${c[0]}" stroke="${c[2]}" stroke-width=".6"/><path d="M0 1L0 7" stroke="#C9B9A2" stroke-width=".7"/></g>`;
   const roses = [[16, 32, 19, P], [44, 12, 12, W], [7, 70, 12, W], [31, 62, 8, P], [52, 36, 6, P],
     [14, 150, 14, P], [27, 186, 8, W], [22, 240, 10, W], [10, 300, 15, W], [26, 336, 8, P], [22, 378, 11, P], [12, 444, 14, P], [28, 476, 8, W],
     [16, 568, 19, W], [44, 590, 12, P], [7, 528, 12, P], [31, 538, 8, W], [52, 566, 6, W]];
@@ -386,32 +416,52 @@ function floralStrip(mirror) {
   [[30, 110, 30, W], [28, 196, -20, P], [34, 268, 40, P], [30, 336, -30, W], [32, 408, 25, W], [30, 480, -15, P], [60, 8, 70, W], [60, 596, 110, P]].forEach(([x, y, a, c]) => (buds += bud(x, y, a, c)));
   for (let i = 0; i < 18; i++) {
     const y = 90 + i * 24;
-    pearls += `<circle cx="${f(20 + 9 * Math.sin(y / 33))}" cy="${y}" r="${i % 3 ? 1.1 : 1.6}" fill="#FFFDFB" stroke="#DDB6B8" stroke-width=".5"/>`;
+    pearls += `<circle cx="${f(20 + 9 * Math.sin(y / 33))}" cy="${y}" r="${i % 3 ? 1.1 : 1.6}" fill="#FFFDFB" stroke="#D3C4AE" stroke-width=".5"/>`;
   }
-  const vine = `<path d="M9 0C22 60 0 120 12 180S2 300 14 360S0 480 12 540S8 590 9 600" fill="none" stroke="#DDB5B3" stroke-width="1.2"/><path d="M12 120c10 -2 16 6 12 12c-3 4 -9 2 -8 -2M10 260c10 -2 16 6 12 12c-3 4 -9 2 -8 -2M12 400c10 -2 16 6 12 12c-3 4 -9 2 -8 -2" fill="none" stroke="#DDB5B3" stroke-width=".8"/>`;
+  const vine = `<path d="M9 0C22 60 0 120 12 180S2 300 14 360S0 480 12 540S8 590 9 600" fill="none" stroke="#CDBDA6" stroke-width="1.2"/><path d="M12 120c10 -2 16 6 12 12c-3 4 -9 2 -8 -2M10 260c10 -2 16 6 12 12c-3 4 -9 2 -8 -2M12 400c10 -2 16 6 12 12c-3 4 -9 2 -8 -2" fill="none" stroke="#CDBDA6" stroke-width=".8"/>`;
   const body = vine + leaves + buds + pearls + flowers;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 600"><g${mirror ? ' transform="translate(80 0) scale(-1 1)"' : ""}>${body}</g></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-// Moño rosa con perlas para la portada.
-const BOW_SVG = `<svg class="bow" viewBox="0 0 120 150" aria-hidden="true">
-  <defs><linearGradient id="bowg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7D6D6"/><stop offset="1" stop-color="#E4A9AD"/></linearGradient>
-  <linearGradient id="bowt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EDB9BC"/><stop offset="1" stop-color="#F5D3D3"/></linearGradient></defs>
-  <g stroke="#CC8E95" stroke-width="1.1" stroke-linejoin="round">
-    <path d="M56 52 C50 78 40 104 28 140 L40 133 L49 144 C56 112 61 82 61 54Z" fill="url(#bowt)"/>
-    <path d="M64 52 C70 78 80 104 92 140 L80 133 L71 144 C64 112 59 82 59 54Z" fill="url(#bowt)"/>
-    <path d="M60 42 C44 14 10 12 8 36 C6 58 36 60 60 46Z" fill="url(#bowg)"/>
-    <path d="M60 42 C76 14 110 12 112 36 C114 58 84 60 60 46Z" fill="url(#bowg)"/>
-    <path d="M58 43 C44 30 24 28 18 38M62 43 C76 30 96 28 102 38" fill="none" stroke-width=".8" opacity=".7"/>
-    <path d="M58 46 C46 52 30 54 20 48M62 46 C74 52 90 54 100 48" fill="none" stroke-width=".8" opacity=".6"/>
-    <rect x="51" y="34" width="18" height="20" rx="7" fill="#EDB6BA"/>
+// Novios chibi para la portada.
+const CHIBI_SVG = `<svg class="chibi" viewBox="0 0 200 180" aria-hidden="true">
+  <g stroke="#5B4636" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M118 44 C150 40 170 70 168 120 C166 150 160 168 150 172 L112 172 C118 140 112 90 118 44Z" fill="#FFFFFF" fill-opacity=".75" stroke="#D9CCBB"/>
+    <path d="M98 70 C96 34 162 30 164 70 C166 96 160 118 154 128 C148 120 146 108 146 100 L114 100 C114 110 110 122 104 128 C98 116 98 92 98 70Z" fill="#3B2A22"/>
+    <path d="M118 112 L144 112 C150 130 162 150 168 170 C150 176 112 176 94 170 C100 150 112 130 118 112Z" fill="#FFFDF8"/>
+    <path d="M116 118 C126 124 136 124 146 118" fill="none" stroke="#D9CCBB"/>
+    <path d="M110 140 C122 146 140 146 152 140M104 156 C120 162 142 162 158 156" fill="none" stroke="#E6DACA" stroke-width="1.2"/>
+    <path d="M58 150 L58 170 L70 170 L70 150Z M74 150 L74 170 L86 170 L86 150Z" fill="#2B3247"/>
+    <path d="M54 170 L71 170 L71 175 L54 175Z M73 170 L90 170 L90 175 L73 175Z" fill="#1E1E24"/>
+    <path d="M50 112 L94 112 C98 128 98 142 96 152 L48 152 C46 142 46 128 50 112Z" fill="#2F3A56"/>
+    <path d="M64 112 L72 132 L80 112Z" fill="#FFFFFF"/>
+    <path d="M66 114 L72 118 L78 114 L78 120 L72 117 L66 120Z" fill="#2B2B33" stroke-width="1.2"/>
+    <path d="M72 132 L72 150" fill="none" stroke="#1F2638"/>
+    <circle cx="57" cy="122" r="3.2" fill="#FFFFFF" stroke="#D9CCBB" stroke-width="1"/>
+    <path d="M92 118 C98 124 102 128 106 130 C110 128 114 124 120 118" fill="none" stroke="#5B4636" stroke-width="7"/>
+    <path d="M92 118 C98 124 102 128 106 130" fill="none" stroke="#2F3A56" stroke-width="5"/>
+    <path d="M106 130 C110 128 114 124 120 118" fill="none" stroke="#FFFDF8" stroke-width="5"/>
+    <circle cx="106" cy="130" r="5" fill="#F6D5BF"/>
+    <path d="M150 128 L156 150" fill="none" stroke="#9AA98A" stroke-width="2"/>
+    <circle cx="146" cy="124" r="5.5" fill="#FFFFFF"/><circle cx="155" cy="121" r="5.5" fill="#F4E7D6"/><circle cx="153" cy="130" r="5.5" fill="#FFFFFF"/><circle cx="144" cy="132" r="4.5" fill="#EADFCF"/>
+    <circle cx="72" cy="74" r="35" fill="#F6D5BF"/>
+    <circle cx="131" cy="74" r="35" fill="#F6D5BF"/>
+    <path d="M37 74 C34 40 58 30 76 34 C98 36 110 52 107 74 C100 62 92 56 82 54 C80 60 70 64 58 62 C50 64 42 68 37 74Z" fill="#3B2A22"/>
+    <path d="M96 76 C94 46 116 36 134 38 C154 40 168 56 166 78 C158 66 150 58 140 54 C132 62 116 66 104 66 C100 70 98 72 96 76Z" fill="#3B2A22"/>
+    <circle cx="112" cy="46" r="4.5" fill="#FFFFFF"/><circle cx="122" cy="40" r="5" fill="#FFFFFF"/><circle cx="133" cy="38" r="4.5" fill="#F4E7D6"/><circle cx="144" cy="40" r="5" fill="#FFFFFF"/><circle cx="154" cy="46" r="4.5" fill="#FFFFFF"/>
   </g>
-  <g fill="#FFFDFB" stroke="#D9AEB2" stroke-width=".6">
-    <circle cx="60" cy="44" r="2.6"/><circle cx="55" cy="39" r="1.6"/><circle cx="65" cy="39" r="1.6"/><circle cx="55" cy="49" r="1.6"/><circle cx="65" cy="49" r="1.6"/>
-    <circle cx="22" cy="24" r="1.5"/><circle cx="32" cy="20" r="1.5"/><circle cx="14" cy="34" r="1.5"/><circle cx="98" cy="24" r="1.5"/><circle cx="88" cy="20" r="1.5"/><circle cx="106" cy="34" r="1.5"/>
-    <circle cx="50" cy="80" r="1.5"/><circle cx="44" cy="100" r="1.5"/><circle cx="37" cy="120" r="1.5"/><circle cx="70" cy="80" r="1.5"/><circle cx="76" cy="100" r="1.5"/><circle cx="83" cy="120" r="1.5"/>
-  </g></svg>`;
+  <g fill="#3B2A22">
+    <ellipse cx="60" cy="82" rx="4" ry="5"/><ellipse cx="84" cy="82" rx="4" ry="5"/>
+    <ellipse cx="119" cy="82" rx="4" ry="5"/><ellipse cx="143" cy="82" rx="4" ry="5"/>
+  </g>
+  <g fill="#FFFFFF"><circle cx="61.5" cy="80" r="1.5"/><circle cx="85.5" cy="80" r="1.5"/><circle cx="120.5" cy="80" r="1.5"/><circle cx="144.5" cy="80" r="1.5"/></g>
+  <g fill="#F2A9A0" opacity=".55"><ellipse cx="52" cy="92" rx="6" ry="3.5"/><ellipse cx="92" cy="92" rx="6" ry="3.5"/><ellipse cx="111" cy="92" rx="6" ry="3.5"/><ellipse cx="151" cy="92" rx="6" ry="3.5"/></g>
+  <g fill="none" stroke="#5B4636" stroke-width="1.6" stroke-linecap="round">
+    <path d="M67 94 C70 98 74 98 77 94"/><path d="M126 94 C129 98 133 98 136 94"/>
+  </g>
+  <path d="M101 22 C97 14 86 16 88 25 C89 31 101 37 101 37 C101 37 113 31 114 25 C116 16 105 14 101 22Z" fill="#E9CFC0" stroke="#B8977A" stroke-width="1.4"/>
+</svg>`;
 
 // Íconos del menú de secciones.
 const MENU_ICONS = {
@@ -439,13 +489,13 @@ function bgLayers(c) {
 // Las piezas con clase "rv" aparecen con animación al llegar a ellas con el scroll.
 function renderInvitation(c, guest) {
   c = normalizeConfig(c);
-  const rosa = c.theme === "rosa";
-  // En el diseño rosa la portada usa el fondo rosa con flores; la foto de la pareja sigue en el sobre kraft y en la galería.
-  const cover = rosa ? { ...c, bgKind: "preset", preset: "rosa", overlay: 0, tone: "dark" } : c;
+  const floral = c.theme === "floral";
+  // En el diseño floral la portada usa el fondo beige con flores; la foto de la pareja sigue en el sobre kraft y en la galería.
+  const cover = floral ? { ...c, bgKind: "preset", preset: "floral", overlay: 0, tone: "dark" } : c;
   const d = parseDate(c.date);
-  const cn1 = rosa ? shortName(c.n1) : c.n1, cn2 = rosa ? shortName(c.n2) : c.n2;
+  const [cn1, cn2] = floral ? coverPair(c) : [c.n1, c.n2];
   const longest = Math.max((cn1 || "").length, (cn2 || "").length);
-  const namesSize = rosa
+  const namesSize = floral
     ? (longest > 13 ? "font-size:clamp(40px,12vw,54px)" : "")
     : longest > 22 ? "font-size:clamp(30px,8.5vw,38px)" : longest > 13 ? "font-size:clamp(36px,10.5vw,46px)" : "";
   const vid = c.coverVideoOn ? mediaUrl(c.coverVideo) : "";
@@ -462,27 +512,26 @@ function renderInvitation(c, guest) {
   const mapQuery = c.address || [c.venue, c.city].filter(Boolean).join(", ");
 
   return `
-  <article class="inv fx-${c.fx}${c.coverIn ? "" : " no-in"}${rosa ? " rosa" : ""}" style="--fxdur:${FX_SPEED[c.fxSpeed][1]}s">
+  <article class="inv fx-${c.fx}${c.coverIn ? "" : " no-in"}${floral ? " floral" : ""}" style="--fxdur:${FX_SPEED[c.fxSpeed][1]}s">
     <section class="card${cover.tone === "dark" && !vid ? " dark-text" : ""}${vid ? " has-video" : ""}" id="inicio"${vid && poster ? ` style='--poster:url("${encodeURI(poster)}")'` : ""}>
       ${bgLayers(cover)}
       ${vid ? `<video class="bgvid" src="${esc(vid)}"${poster ? ` poster="${esc(poster)}"` : ""} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video><div class="vidshade"></div>` : ""}
-      ${rosa ? `<div class="frame" aria-hidden="true"></div>` : ""}
+      ${floral ? `<div class="frame" aria-hidden="true"></div>` : ""}
       ${particlesHtml(c.particles)}
       ${hasSong ? `<button type="button" class="music-btn" aria-pressed="false">♪ Reproducir</button>` : ""}
       <div class="inner">
-        <div class="kicker in" style="--d:.1s">Nos casamos</div>
+        ${floral ? "" : `<div class="kicker in" style="--d:.1s">Nos casamos</div>`}
         <h1 class="names" style="${namesSize}">
           <span class="in" style="--d:.25s">${esc(cn1 || "Nombre")}</span>
-          <span class="amp in" style="--d:.45s">&amp;</span>
-          <span class="in" style="--d:.6s">${esc(cn2 || "Nombre")}</span>
+          ${cn2 ? `<span class="amp in" style="--d:.45s">&amp;</span>
+          <span class="in" style="--d:.6s">${esc(cn2)}</span>` : ""}
         </h1>
-        ${rosa && (c.n1 || c.n2) ? `<p class="full in" style="--d:.7s">${esc([c.n1, c.n2].filter((x) => String(x || "").trim()).join(" & "))}</p>` : ""}
+        ${floral ? `${c.bow ? `<div class="chibi-wrap in" style="--d:.9s">${CHIBI_SVG}</div>` : ""}` : `
         <div class="rule in" style="--d:.8s"></div>
         <div class="date in" style="--d:.9s">${d ? esc(cap(fmtLong.format(d))) : "Fecha por definir"}</div>
         ${c.time ? `<div class="meta in" style="--d:1s">${esc(c.time)} h</div>` : ""}
-        ${rosa && c.bow ? `<div class="bow-wrap in" style="--d:1.05s">${BOW_SVG}</div>` : ""}
         ${guest ? `<div class="pases in" style="--d:1.15s">✦ ${esc(String(guest.nombre || "").trim() || "Invitado")} · ${plural(Number(guest.pases) || 1)}</div>` : ""}
-        <a class="rsvp-cta in" style="--d:1.3s" href="#confirmar">${guest && guest.rsvp ? "Ver mi respuesta" : "Confirmar asistencia"}</a>
+        <a class="rsvp-cta in" style="--d:1.3s" href="#confirmar">${guest && guest.rsvp ? "Ver mi respuesta" : "Confirmar asistencia"}</a>`}
       </div>
       ${c.menu ? "" : `<a class="scroll-hint" href="#detalles" aria-label="Bajar para ver más"><span>Desliza</span><i></i></a>`}
     </section>
@@ -629,11 +678,16 @@ function renderInvitation(c, guest) {
       }
 
       <section class="sec rsvp-sec" id="confirmar">
+        ${floral && guest ? `<p class="pases-end rv">✦ ${esc(String(guest.nombre || "").trim() || "Invitado")} · ${plural(Number(guest.pases) || 1)}</p>` : ""}
         <div class="rsvp-slot"></div>
       </section>
 
       ${hasSong && c.songTitle ? `<p class="song rv">♪ ${esc(c.songTitle)}</p>` : ""}
-      <footer class="end rv">${esc(coupleShort(c))}<br><span>${d ? esc(String(d.getFullYear())) : ""}</span></footer>
+      ${
+        String(c.endText || "").trim()
+          ? `<footer class="end end-text rv">${esc(String(c.endText).trim())}</footer>`
+          : `<footer class="end rv">${esc(coupleShort(c))}<br><span>${d ? esc(String(d.getFullYear())) : ""}</span></footer>`
+      }
     </div>
     ${
       c.menu
@@ -1091,49 +1145,52 @@ const INVITATION_CSS = `
 .inv .menu a[aria-current]{color:var(--rose);background:color-mix(in srgb,var(--rose) 13%,transparent)}
 .inv .menu a:focus-visible{outline:2px solid var(--rose);outline-offset:-2px}
 
-/* Diseño rosa floral */
-.inv.rosa{--paper:#F8EBE8;--paper-ink:#6E4A4E;--paper-muted:#8E6F72;--rose:#BF7883;--line:#EBD2CF;--inv-dark:#7E5357}
-.inv.rosa .frame,.inv.rosa .paper::before{position:absolute;inset:0;pointer-events:none;background-image:var(--fl),var(--fr);background-position:left top,right top;background-size:21% auto,21% auto;background-repeat:repeat-y}
-.inv.rosa .frame{z-index:0}
-.inv.rosa .paper::before{content:"";z-index:0;opacity:.9}
-.inv.rosa .sec,.inv.rosa .end,.inv.rosa .song{position:relative;z-index:1}
-.inv.rosa .card .inner{padding-left:19%;padding-right:19%}
-.inv.rosa .sec{padding-left:15%;padding-right:15%}
-.inv.rosa .gallery{padding-left:14%;padding-right:14%}
-.inv.rosa .names{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(54px,17vw,76px);line-height:1}
-.inv.rosa .amp{font:400 clamp(30px,9vw,40px)/1 'Great Vibes',cursive;font-style:normal;opacity:.7}
-.inv.rosa .full{margin:2px 0 0;font:500 15px/1.35 'Cormorant Garamond',Georgia,serif;text-wrap:balance;opacity:.9}
-.inv.rosa .bow-wrap{margin:4px 0}
-.inv.rosa .bow{display:block;width:clamp(78px,24vw,104px);height:auto;filter:drop-shadow(0 3px 4px rgba(150,90,95,.25))}
-.inv.rosa .sec-title,.inv.rosa .rsvp-slot h2,.inv.rosa .gifts .g-title{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(40px,11vw,50px)}
-.inv.rosa .quote,.inv.rosa .big,.inv.rosa .t-title{color:var(--paper-ink)}
-.inv.rosa .card .music-btn{background:rgba(255,255,255,.6)}
-.inv.rosa .cd{gap:6px}
-.inv.rosa .cd div{min-width:0;flex:1 1 0;max-width:70px;background:rgba(255,255,255,.75)}
-.inv.rosa .t-card,.inv.rosa .dress-card,.inv.rosa .pill{background:rgba(255,255,255,.6)}
-.inv.rosa .rsvp-slot label.opt:has(input:checked),.inv.rosa .rsvp-slot .send{background:var(--rose);border-color:var(--rose)}
-.inv.rosa .rsvp-slot .ghost{border-color:var(--rose);color:var(--rose)}
-.inv.rosa .menu{background:rgba(253,246,245,.88)}
+/* Diseño floral: fondo beige y flores blancas */
+.inv.floral{--paper:#F4EDE2;--paper-ink:#5A4636;--paper-muted:#857160;--rose:#A4835F;--line:#E4D8C6;--inv-dark:#5A4636}
+.inv.floral .frame,.inv.floral .paper::before{position:absolute;inset:0;pointer-events:none;background-image:var(--fl),var(--fr);background-position:left top,right top;background-size:21% auto,21% auto;background-repeat:repeat-y}
+.inv.floral .frame{z-index:0}
+.inv.floral .paper::before{content:"";z-index:0;opacity:.9}
+.inv.floral .sec,.inv.floral .end,.inv.floral .song{position:relative;z-index:1}
+.inv.floral .card .inner{padding-left:19%;padding-right:19%}
+.inv.floral .sec{padding-left:15%;padding-right:15%}
+.inv.floral .gallery{padding-left:14%;padding-right:14%}
+.inv.floral .names{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(54px,17vw,76px);line-height:1}
+.inv.floral .amp{font:400 clamp(30px,9vw,40px)/1 'Great Vibes',cursive;font-style:normal;opacity:.7}
+.inv.floral .full{margin:2px 0 0;font:500 15px/1.35 'Cormorant Garamond',Georgia,serif;text-wrap:balance;opacity:.9}
+.inv.floral .chibi-wrap{margin:10px 0 0}
+.inv.floral .chibi{display:block;width:clamp(150px,46vw,220px);height:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.inv.floral .card .inner{gap:4px}
+.inv .pases-end{display:inline-block;margin:0 0 22px;padding:9px 18px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:14px;color:var(--paper-ink)}
+.inv .end-text{max-width:28ch;margin:0 auto;font:italic 500 clamp(22px,6vw,28px)/1.4 'Cormorant Garamond',Georgia,serif;text-wrap:balance}
+.inv.floral .sec-title,.inv.floral .rsvp-slot h2,.inv.floral .gifts .g-title{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(40px,11vw,50px)}
+.inv.floral .quote,.inv.floral .big,.inv.floral .t-title{color:var(--paper-ink)}
+.inv.floral .card .music-btn{background:rgba(255,255,255,.6)}
+.inv.floral .cd{gap:6px}
+.inv.floral .cd div{min-width:0;flex:1 1 0;max-width:70px;background:rgba(255,255,255,.75)}
+.inv.floral .t-card,.inv.floral .dress-card,.inv.floral .pill{background:rgba(255,255,255,.6)}
+.inv.floral .rsvp-slot label.opt:has(input:checked),.inv.floral .rsvp-slot .send{background:var(--rose);border-color:var(--rose)}
+.inv.floral .rsvp-slot .ghost{border-color:var(--rose);color:var(--rose)}
+.inv.floral .menu{background:rgba(251,248,242,.9)}
 
 /* Video de fondo en la portada */
 .inv .card .bgvid{position:absolute;inset:0;z-index:-1;width:100%;height:100%;object-fit:cover;object-position:50% 40%;pointer-events:none}
 .inv .card .vidshade{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(20,14,18,.45) 0%,rgba(20,14,18,.22) 35%,rgba(20,14,18,.3) 65%,rgba(20,14,18,.6) 100%)}
 .inv .card.has-video{--ink:#fff}
 .inv .card.has-video .inner{text-shadow:0 2px 12px rgba(0,0,0,.45)}
-.inv.rosa .card.has-video .music-btn{background:rgba(0,0,0,.25)}
+.inv.floral .card.has-video .music-btn{background:rgba(0,0,0,.25)}
 @media (prefers-reduced-motion: reduce){.inv .card .bgvid{display:none}.inv .card.has-video .bgimg{background:var(--poster) center/cover!important}}
 
 /* Tamaños para celular, tableta y computadora */
-.inv.rosa .frame,.inv.rosa .paper::before{background-size:clamp(64px,21%,150px) auto,clamp(64px,21%,150px) auto}
-.inv.rosa .card .inner{padding-left:clamp(58px,19%,150px);padding-right:clamp(58px,19%,150px)}
-.inv.rosa .sec{padding-left:clamp(52px,15%,150px);padding-right:clamp(52px,15%,150px)}
-.inv.rosa .gallery{padding-left:clamp(48px,14%,140px);padding-right:clamp(48px,14%,140px)}
+.inv.floral .frame,.inv.floral .paper::before{background-size:clamp(64px,21%,150px) auto,clamp(64px,21%,150px) auto}
+.inv.floral .card .inner{padding-left:clamp(58px,19%,150px);padding-right:clamp(58px,19%,150px)}
+.inv.floral .sec{padding-left:clamp(52px,15%,150px);padding-right:clamp(52px,15%,150px)}
+.inv.floral .gallery{padding-left:clamp(48px,14%,140px);padding-right:clamp(48px,14%,140px)}
 @media (min-width:700px){
   .inv{max-width:760px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 20px 60px rgba(60,30,40,.12)}
   .inv .card{min-height:min(100svh,980px)}
   .inv .sec{padding-top:72px;padding-bottom:72px}
   .inv .names{font-size:clamp(58px,9vw,78px)}
-  .inv.rosa .names{font-size:clamp(76px,11vw,104px)}
+  .inv.floral .names{font-size:clamp(76px,11vw,104px)}
   .inv .quote{font-size:32px}
   .inv .menu{max-width:560px}
   .inv .menu a{font-size:11px;height:52px}
@@ -1143,18 +1200,19 @@ const INVITATION_CSS = `
 @media (min-width:1100px){.inv{max-width:880px}}
 @media (max-width:360px){
   .inv .menu a{min-width:42px;flex-basis:42px;font-size:8px}
-  .inv.rosa .names{font-size:clamp(46px,15vw,60px)}
+  .inv.floral .names{font-size:clamp(46px,15vw,60px)}
 }
 
-/* Sobre de entrada en tonos rosa */
-.gate.rosa{background:rgba(110,62,72,.55)}
-.gate.rosa .env-back{background:linear-gradient(160deg,#F7E3E1,#EBC9C8)}
-.gate.rosa .env-pocket{background:linear-gradient(160deg,#FBEDEB,#F0D6D4)}
-.gate.rosa .env-flap{background:linear-gradient(180deg,#EFCFCD,#E2B5B6)}
-.gate.rosa .env-letter{color:#8B5E62}
-.gate.rosa .env-letter span{font:400 38px/1 'Great Vibes',cursive}
-.gate.rosa .env-seal{background:radial-gradient(circle at 35% 30%,#ECB3BD,#C27886 70%);color:#FFF4F5}
-.gate.rosa .gate-names{font-family:'Great Vibes',cursive;font-weight:400;font-size:3rem}
+/* Sobre de entrada: se queda en tonos rosa */
+.gate.floral{background:rgba(110,62,72,.55)}
+.gate.floral .env-back{background:linear-gradient(160deg,#F7E3E1,#EBC9C8)}
+.gate.floral .env-pocket{background:linear-gradient(160deg,#FBEDEB,#F0D6D4)}
+.gate.floral .env-flap{background:linear-gradient(180deg,#EFCFCD,#E2B5B6)}
+.gate.floral .env-letter{color:#8B5E62}
+.gate.floral .env-letter span{font:400 clamp(24px,7.5vw,32px)/1.1 'Great Vibes',cursive;text-align:center;padding:0 8px}
+.inv.floral .rsvp-slot .note-small{color:var(--paper-muted)}
+.gate.floral .env-seal{background:radial-gradient(circle at 35% 30%,#ECB3BD,#C27886 70%);color:#FFF4F5}
+.gate.floral .gate-names{font-family:'Great Vibes',cursive;font-weight:400;font-size:3rem}
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(8,9,20,.92);display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;animation:inv-fade .25s ease}
 @keyframes inv-fade{from{opacity:0}}
 .lightbox img{max-width:94vw;max-height:88vh;border-radius:8px;object-fit:contain}
@@ -1162,7 +1220,7 @@ const INVITATION_CSS = `
 `;
 
 // Las tiras de flores se arman una vez y se pasan al CSS como variables.
-const INVITATION_CSS_FULL = INVITATION_CSS + `.inv.rosa{--fl:${floralStrip(false)};--fr:${floralStrip(true)}}`;
+const INVITATION_CSS_FULL = INVITATION_CSS + `.inv.floral{--fl:${floralStrip(false)};--fr:${floralStrip(true)}}`;
 
 const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Figtree:wght@400;500;600&family=Great+Vibes&display=swap";

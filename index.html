@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link id="fonts" rel="stylesheet">
   <style>
-    html,body{margin:0;background:#EFDEDB;min-height:100%}
+    html,body{margin:0;background:#ECE3D6;min-height:100%}
     .state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;font-family:"Figtree",system-ui,sans-serif;color:#3E4060}
     .state h1{font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;font-size:1.9rem;margin:0 0 8px;color:#16182B}
     .spinner{width:34px;height:34px;border:3px solid #DCDDE8;border-top-color:#A8325A;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:14px}
@@ -40,7 +40,7 @@
 <body>
   <div id="app"><div class="state"><div class="spinner"></div><p>Cargando tu invitación…</p></div></div>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
-  <script src="common.js?v=20261116-2"></script>
+  <script src="common.js?v=20261116-3"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const style = document.createElement("style");
@@ -74,12 +74,12 @@
       </div>`;
     }
 
-    function rsvpHtml(g) {
+    function rsvpHtml(g, c) {
       if (g.rsvp === "si" || g.rsvp === "no") {
         const text = g.rsvp === "si"
           ? `¡Gracias! Confirmaste ${plural(g.rsvp_pases)}.`
           : "Gracias por avisarnos. Te vamos a extrañar.";
-        return `<h2>Confirmación</h2><p class="done">${text}</p>${g.rsvp === "si" ? passHtml(g) : ""}<p class="note-small">Si necesitas cambiar tu respuesta, avísales a los novios.</p>`;
+        return `<h2>Confirmación</h2><p class="done">${text}</p>${g.rsvp === "si" && c.qrOn ? passHtml(g) : ""}<p class="note-small">Si necesitas cambiar tu respuesta, avísales a los novios.</p>`;
       }
       const opts = Array.from({ length: g.pases }, (_, i) => i + 1)
         .map((n) => `<option value="${n}" ${n === g.pases ? "selected" : ""}>${plural(n)}</option>`)
@@ -97,8 +97,8 @@
         </form>`;
     }
 
-    function mountRsvp(slot, g) {
-      slot.innerHTML = rsvpHtml(g);
+    function mountRsvp(slot, g, c) {
+      slot.innerHTML = rsvpHtml(g, c);
       const form = slot.querySelector("form");
       if (!form) return;
       const sel = form.querySelector("select");
@@ -114,7 +114,7 @@
         msg.textContent = "Enviando…";
         try {
           const r = await api({ action: "rsvp", slug, token, rsvp: form.r.value, pases: Number(sel.value) });
-          mountRsvp(slot, { ...g, rsvp: r.rsvp, rsvp_pases: r.rsvp_pases });
+          mountRsvp(slot, { ...g, rsvp: r.rsvp, rsvp_pases: r.rsvp_pases }, c);
         } catch (err) {
           msg.className = "msg err";
           msg.textContent = err.message;
@@ -142,7 +142,7 @@
       const inv = app.querySelector(".inv");
       inv.classList.add("waiting");
       wireInvitation(app, c, player);
-      mountRsvp(app.querySelector(".rsvp-slot"), g);
+      mountRsvp(app.querySelector(".rsvp-slot"), g, c);
 
       // El navegador solo deja sonar música después de un toque.
       mountGate(
