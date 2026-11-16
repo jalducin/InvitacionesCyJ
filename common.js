@@ -101,8 +101,9 @@ const DEFAULT_CONFIG = {
   theme: "rosa", // "rosa": fondo rosa con marco de flores blancas y rosas (como el reel); "clasico": el fondo elegido
   bow: true, // moño rosa en la portada (diseño rosa)
   menu: true, // menú fijo abajo para brincar entre secciones
-  videoUrl: "https://drive.google.com/file/d/1xA1svxwF-a7v36UbQ6V6CRg46XrfHIYZ/view", // video "save the date" (Google Drive o YouTube); vacío = sin video
-  videoTitle: "Save the date",
+  coverVideoOn: true, // video en movimiento, sin sonido, de fondo en la portada
+  coverVideo: "portada.mp4", // archivo del repositorio (portada.mp4) o link https a un .mp4
+  coverPoster: "portada.jpg", // imagen que se ve mientras carga el video
 };
 const THEMES = { rosa: "Rosa floral", clasico: "Clásico (el fondo que elijas)" };
 
@@ -338,16 +339,12 @@ function buildMessage(c, guest, url) {
   return msg;
 }
 
-// ---------- Video ----------
-// Convierte un link de Google Drive o YouTube en { embed, open }. Otro tipo de link: null.
-function videoEmbed(u) {
-  u = safeUrl(u);
-  if (!u) return null;
-  let m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]{10,})/);
-  if (m) return { embed: `https://drive.google.com/file/d/${m[1]}/preview`, open: `https://drive.google.com/file/d/${m[1]}/view` };
-  m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/))([\w-]{11})/);
-  if (m) return { embed: `https://www.youtube.com/embed/${m[1]}?playsinline=1&rel=0`, open: `https://www.youtube.com/watch?v=${m[1]}` };
-  return null;
+// ---------- Video de fondo ----------
+// Acepta un archivo del sitio (portada.mp4, portada.jpg) o un link https. Cualquier otra cosa: "".
+function mediaUrl(u) {
+  u = String(u || "").trim();
+  if (/^[\w-]+\.(mp4|webm|jpe?g|png|webp)$/i.test(u)) return u;
+  return safeUrl(u);
 }
 
 // ---------- Marco de flores (diseño rosa) ----------
@@ -420,13 +417,12 @@ const BOW_SVG = `<svg class="bow" viewBox="0 0 120 150" aria-hidden="true">
 const MENU_ICONS = {
   inicio: '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>',
   faltan: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
-  video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
   ubicacion: ICON_PATHS.pin,
   itinerario: ICON_PATHS.reloj,
   fotos: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>',
   confirmar: ICON_PATHS.corazon,
 };
-const MENU_LABELS = { inicio: "Inicio", faltan: "Fecha", video: "Video", ubicacion: "Lugar", itinerario: "Programa", fotos: "Fotos", confirmar: "Confirmar" };
+const MENU_LABELS = { inicio: "Inicio", faltan: "Fecha", ubicacion: "Lugar", itinerario: "Programa", fotos: "Fotos", confirmar: "Confirmar" };
 
 // ---------- Invitación ----------
 function bgLayers(c) {
@@ -452,7 +448,8 @@ function renderInvitation(c, guest) {
   const namesSize = rosa
     ? (longest > 13 ? "font-size:clamp(40px,12vw,54px)" : "")
     : longest > 22 ? "font-size:clamp(30px,8.5vw,38px)" : longest > 13 ? "font-size:clamp(36px,10.5vw,46px)" : "";
-  const video = videoEmbed(c.videoUrl);
+  const vid = c.coverVideoOn ? mediaUrl(c.coverVideo) : "";
+  const poster = mediaUrl(c.coverPoster);
   const sched = (c.schedule || []).filter((s) => s && (s.label || s.from));
   const photos = (c.photos || []).map(safeUrl).filter(Boolean);
   const map = safeUrl(c.mapUrl);
@@ -466,8 +463,9 @@ function renderInvitation(c, guest) {
 
   return `
   <article class="inv fx-${c.fx}${c.coverIn ? "" : " no-in"}${rosa ? " rosa" : ""}" style="--fxdur:${FX_SPEED[c.fxSpeed][1]}s">
-    <section class="card${cover.tone === "dark" ? " dark-text" : ""}" id="inicio">
+    <section class="card${cover.tone === "dark" && !vid ? " dark-text" : ""}${vid ? " has-video" : ""}" id="inicio"${vid && poster ? ` style='--poster:url("${encodeURI(poster)}")'` : ""}>
       ${bgLayers(cover)}
+      ${vid ? `<video class="bgvid" src="${esc(vid)}"${poster ? ` poster="${esc(poster)}"` : ""} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video><div class="vidshade"></div>` : ""}
       ${rosa ? `<div class="frame" aria-hidden="true"></div>` : ""}
       ${particlesHtml(c.particles)}
       ${hasSong ? `<button type="button" class="music-btn" aria-pressed="false">♪ Reproducir</button>` : ""}
@@ -538,15 +536,6 @@ function renderInvitation(c, guest) {
           : ""
       }
 
-      ${
-        video
-          ? `<section class="sec video" id="video">
-        ${head(c.videoTitle || "Save the date")}
-        <div class="vidbox rv zoom"><iframe src="${esc(video.embed)}" title="${esc(c.videoTitle || "Video")}" loading="lazy" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
-        <a class="btn rv" href="${esc(video.open)}" target="_blank" rel="noopener noreferrer">Ver en pantalla completa</a>
-      </section>`
-          : ""
-      }
 
       ${
         c.venue || c.city || map
@@ -651,7 +640,6 @@ function renderInvitation(c, guest) {
         ? `<nav class="menu" aria-label="Secciones de la invitación">${[
             ["inicio", true],
             ["faltan", !!d],
-            ["video", !!video],
             ["ubicacion", !!(c.venue || c.city || map)],
             ["itinerario", sched.length > 0],
             ["fotos", photos.length > 0],
@@ -742,6 +730,15 @@ function wireInvitation(root, c, player) {
       cp.textContent = "¡Copiado!";
       setTimeout(() => (cp.textContent = "Copiar número"), 1800);
     });
+  }
+
+  // Video de fondo de la portada: algunos navegadores no lo arrancan solos; se intenta y, si no, queda la imagen fija.
+  const bv = root.querySelector(".card .bgvid");
+  if (bv) {
+    bv.muted = true;
+    const pr = bv.play();
+    if (pr && pr.catch) pr.catch(() => {});
+    document.addEventListener("click", () => bv.paused && bv.play().catch(() => {}), { once: true });
   }
 
   // Menú de secciones: lleva a cada parte y marca en cuál vas.
@@ -1085,9 +1082,6 @@ const INVITATION_CSS = `
 .gate-kraft.opening .k-left{transform:translateX(-36%) rotate(-5deg);transition-delay:.6s}
 .gate-kraft.opening .k-bottom{transform:translateY(105%);transition-delay:.75s}
 @media (prefers-reduced-motion: reduce){.k-seal,.k-tap{animation:none}.k-wrap,.k-card{transition:none}}
-/* Video save the date */
-.inv .vidbox{width:min(100%,300px);margin:0 auto;aspect-ratio:9/16;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#EEE6E4;box-shadow:0 10px 30px rgba(26,27,46,.12)}
-.inv .vidbox iframe{display:block;width:100%;height:100%;border:0}
 
 /* Menú fijo abajo para brincar entre secciones */
 .inv .menu{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:2px;width:calc(100% - 20px);margin:0 auto 10px;padding:4px;border-radius:16px;background:rgba(255,255,255,.86);border:1px solid var(--line);box-shadow:0 6px 18px rgba(60,30,40,.14);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);overflow-x:auto;scrollbar-width:none}
@@ -1120,6 +1114,37 @@ const INVITATION_CSS = `
 .inv.rosa .rsvp-slot label.opt:has(input:checked),.inv.rosa .rsvp-slot .send{background:var(--rose);border-color:var(--rose)}
 .inv.rosa .rsvp-slot .ghost{border-color:var(--rose);color:var(--rose)}
 .inv.rosa .menu{background:rgba(253,246,245,.88)}
+
+/* Video de fondo en la portada */
+.inv .card .bgvid{position:absolute;inset:0;z-index:-1;width:100%;height:100%;object-fit:cover;object-position:50% 40%;pointer-events:none}
+.inv .card .vidshade{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(20,14,18,.45) 0%,rgba(20,14,18,.22) 35%,rgba(20,14,18,.3) 65%,rgba(20,14,18,.6) 100%)}
+.inv .card.has-video{--ink:#fff}
+.inv .card.has-video .inner{text-shadow:0 2px 12px rgba(0,0,0,.45)}
+.inv.rosa .card.has-video .music-btn{background:rgba(0,0,0,.25)}
+@media (prefers-reduced-motion: reduce){.inv .card .bgvid{display:none}.inv .card.has-video .bgimg{background:var(--poster) center/cover!important}}
+
+/* Tamaños para celular, tableta y computadora */
+.inv.rosa .frame,.inv.rosa .paper::before{background-size:clamp(64px,21%,150px) auto,clamp(64px,21%,150px) auto}
+.inv.rosa .card .inner{padding-left:clamp(58px,19%,150px);padding-right:clamp(58px,19%,150px)}
+.inv.rosa .sec{padding-left:clamp(52px,15%,150px);padding-right:clamp(52px,15%,150px)}
+.inv.rosa .gallery{padding-left:clamp(48px,14%,140px);padding-right:clamp(48px,14%,140px)}
+@media (min-width:700px){
+  .inv{max-width:760px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 20px 60px rgba(60,30,40,.12)}
+  .inv .card{min-height:min(100svh,980px)}
+  .inv .sec{padding-top:72px;padding-bottom:72px}
+  .inv .names{font-size:clamp(58px,9vw,78px)}
+  .inv.rosa .names{font-size:clamp(76px,11vw,104px)}
+  .inv .quote{font-size:32px}
+  .inv .menu{max-width:560px}
+  .inv .menu a{font-size:11px;height:52px}
+  .inv .menu a svg{width:21px;height:21px}
+  .inv .gal-grid{gap:10px}
+}
+@media (min-width:1100px){.inv{max-width:880px}}
+@media (max-width:360px){
+  .inv .menu a{min-width:42px;flex-basis:42px;font-size:8px}
+  .inv.rosa .names{font-size:clamp(46px,15vw,60px)}
+}
 
 /* Sobre de entrada en tonos rosa */
 .gate.rosa{background:rgba(110,62,72,.55)}

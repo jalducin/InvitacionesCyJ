@@ -2,7 +2,7 @@
 // GitHub Pages ignora este archivo.
 import { serveDir } from "jsr:@std/http@1.0.10/file-server";
 
-const PUBLIC = new Set(["/", "/index.html", "/editar.html", "/acceso.html", "/common.js"]);
+const PUBLIC = new Set(["/", "/index.html", "/editar.html", "/acceso.html", "/common.js", "/portada.mp4", "/portada.jpg"]);
 
 Deno.serve((req) => {
   const path = new URL(req.url).pathname;

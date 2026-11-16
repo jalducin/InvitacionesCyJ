@@ -172,7 +172,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261116-1"></script>
+  <script src="common.js?v=20261116-2"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -431,9 +431,9 @@
                 <p class="hint">Rosa floral: fondo rosa con marco de flores blancas y rosa claro a los lados, nombres en letra manuscrita y el sobre en rosa. La foto de fondo se sigue usando en el sobre kraft y en la galería.</p>
                 <label class="check"><input type="checkbox" id="bow"> Moño rosa en la portada (diseño rosa)</label>
                 <label class="check"><input type="checkbox" id="menu"> Menú abajo para brincar entre secciones (Inicio, Fecha, Video, Lugar…)</label>
-                <div class="field"><label for="videoUrl">Video save the date (link de Google Drive o YouTube)</label><input type="text" id="videoUrl" data-key="videoUrl" autocomplete="off" inputmode="url" spellcheck="false"></div>
-                <div class="field"><label for="videoTitle">Título de la sección del video</label><input type="text" id="videoTitle" data-key="videoTitle" autocomplete="off"></div>
-                <p class="hint">Para que los invitados vean el video de Drive, compártelo como “Cualquier persona con el enlace · Lector”. Deja el link vacío para quitar la sección.</p>
+                <label class="check"><input type="checkbox" id="coverVideoOn"> Video en movimiento de fondo en la portada (sin sonido)</label>
+                <div class="field"><label for="coverVideo">Video de la portada (portada.mp4 o link https a un .mp4)</label><input type="text" id="coverVideo" data-key="coverVideo" autocomplete="off" inputmode="url" spellcheck="false"></div>
+                <p class="hint">portada.mp4 es su video save the date, reducido para que cargue rápido en celular. Sobre el video, el texto de la portada se pone blanco.</p>
                 <p class="hint">Cómo aparece cada parte de la invitación cuando el invitado baja. Los cambios se ven al momento en la vista previa.</p>
                 <div class="field"><span class="lbl">Animación al bajar</span><div class="seg wrap" id="fx" role="group" aria-label="Animación al bajar"></div></div>
                 <div class="field"><span class="lbl">Velocidad</span><div class="seg" id="fxSpeed" role="group" aria-label="Velocidad de la animación"></div></div>
@@ -631,6 +631,7 @@
       $("parallax").checked = !!S.parallax;
       $("bow").checked = !!S.bow;
       $("menu").checked = !!S.menu;
+      $("coverVideoOn").checked = !!S.coverVideoOn;
     }
 
     function renderSwatches() {
@@ -940,6 +941,7 @@
       $("parallax").onchange = (e) => { S.parallax = e.target.checked; changed(); renderPreview(); };
       $("bow").onchange = (e) => { S.bow = e.target.checked; changed(); renderPreview(); };
       $("menu").onchange = (e) => { S.menu = e.target.checked; changed(); renderPreview(); };
+      $("coverVideoOn").onchange = (e) => { S.coverVideoOn = e.target.checked; changed(); renderPreview(); };
       $("fx-replay").onclick = replayPreview;
 
       $("save").onclick = save;
