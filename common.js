@@ -1158,9 +1158,9 @@ const INVITATION_CSS = `
 .inv.floral .names{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(54px,17vw,76px);line-height:1}
 .inv.floral .amp{font:400 clamp(30px,9vw,40px)/1 'Great Vibes',cursive;font-style:normal;opacity:.7}
 .inv.floral .full{margin:2px 0 0;font:500 15px/1.35 'Cormorant Garamond',Georgia,serif;text-wrap:balance;opacity:.9}
-.inv.floral .chibi-wrap{margin:10px 0 0}
+.inv.floral .chibi-wrap{margin:clamp(28px,6svh,56px) 0 0}
 .inv.floral .chibi{display:block;width:clamp(170px,52vw,260px);height:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
-.inv.floral img.chibi{width:clamp(180px,56vw,290px)}
+.inv.floral img.chibi{width:clamp(126px,39vw,203px)}
 .inv.floral .card .inner{gap:4px}
 .inv .pases-end{display:inline-block;margin:0 0 22px;padding:9px 18px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:14px;color:var(--paper-ink)}
 .inv .end-text{max-width:28ch;margin:0 auto;font:italic 500 clamp(22px,6vw,28px)/1.4 'Cormorant Garamond',Georgia,serif;text-wrap:balance}
