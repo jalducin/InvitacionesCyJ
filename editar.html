@@ -77,6 +77,7 @@
     .srow .field{flex:0 0 130px}
     .srow .field.lab{flex:1 1 200px}
     .venue-thumb{width:88px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+    .chibi-thumb{width:72px;height:80px;object-fit:contain;border-radius:8px;border:1px solid var(--line);background:#EADFCF}
     .srow{padding-bottom:12px;border-bottom:1px dashed var(--line)}
     .empty{color:var(--muted);padding:6px 0;margin:0}
 
@@ -172,7 +173,7 @@
 <body>
   <div class="app" id="root"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="common.js?v=20261116-4"></script>
+  <script src="common.js?v=20261116-5"></script>
   <script>
     document.getElementById("fonts").href = FONTS_HREF;
     const st = document.createElement("style");
@@ -431,6 +432,15 @@
                 <p class="hint">Beige floral: fondo beige con flores blancas a los lados, el sobre en rosa y la portada solo con los nombres. La foto de fondo se sigue usando en el sobre kraft y en la galería.</p>
                 <div class="field"><label for="coverNames">Lo que dice el sobre y la portada</label><input type="text" id="coverNames" data-key="coverNames" autocomplete="off" placeholder="Jesús & Cynthia"></div>
                 <label class="check"><input type="checkbox" id="bow"> Novios chibi en la portada (diseño floral)</label>
+                <div class="field"><span class="lbl">Imagen de los novios chibi</span>
+                  <div class="swatches">
+                    <img id="chibi-thumb" class="chibi-thumb" alt="Novios chibi" hidden>
+                    <label class="upload"><input type="file" id="chibi-file" accept="image/png,image/webp,image/jpeg">Subir otra imagen</label>
+                    <button type="button" class="quiet" id="chibi-reset">Volver a la original</button>
+                  </div>
+                  <label class="check"><input type="checkbox" id="chibi-clean" checked> Al subir, quitar el fondo blanco o de cuadritos</label>
+                  <p class="hint" id="chibi-msg">Mejor un PNG sin fondo. Si la imagen trae fondo blanco o de cuadritos grises, se quita solo el que toca las orillas; revisa la vista previa.</p>
+                </div>
                 <label class="check"><input type="checkbox" id="qrOn"> Mostrar pase con código QR después de confirmar</label>
                 <div class="field"><label for="endText">Frase final de la invitación (vacío = nombres y año)</label><textarea id="endText" data-key="endText" rows="2"></textarea></div>
                 <label class="check"><input type="checkbox" id="menu"> Menú abajo para brincar entre secciones (Inicio, Fecha, Video, Lugar…)</label>
@@ -636,6 +646,9 @@
       $("menu").checked = !!S.menu;
       $("coverVideoOn").checked = !!S.coverVideoOn;
       $("qrOn").checked = !!S.qrOn;
+      const ci = mediaUrl(S.chibiImg);
+      $("chibi-thumb").hidden = !ci;
+      if (ci) $("chibi-thumb").src = ci;
     }
 
     function renderSwatches() {
@@ -947,6 +960,24 @@
       $("menu").onchange = (e) => { S.menu = e.target.checked; changed(); renderPreview(); };
       $("coverVideoOn").onchange = (e) => { S.coverVideoOn = e.target.checked; changed(); renderPreview(); };
       $("qrOn").onchange = (e) => { S.qrOn = e.target.checked; changed(); };
+      $("chibi-file").onchange = async (e) => {
+        const f = e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        const msg = $("chibi-msg");
+        msg.className = "hint";
+        msg.textContent = "Subiendo imagen…";
+        try {
+          S.chibiImg = await uploadSticker(f, 900, $("chibi-clean").checked);
+          S.bow = true;
+          msg.textContent = "Listo. Revisa en la vista previa cómo se ve en la portada y guarda.";
+          changed(); syncControls(); renderPreview();
+        } catch (err) {
+          msg.className = "hint err";
+          msg.textContent = err.message;
+        }
+      };
+      $("chibi-reset").onclick = () => { S.chibiImg = DEFAULT_CONFIG.chibiImg; changed(); syncControls(); renderPreview(); };
       $("fx-replay").onclick = replayPreview;
 
       $("save").onclick = save;
@@ -1398,6 +1429,72 @@
       URL.revokeObjectURL(img.src);
       const b64 = c.toDataURL("image/jpeg", 0.85).split(",")[1];
       const { url } = await api({ action: "upload", slug, editKey, contentType: "image/jpeg", dataBase64: b64 });
+      return url;
+    }
+
+    // Sube una imagen conservando la transparencia (WEBP o PNG). Con `clean`, vuelve transparente
+    // el fondo blanco o de cuadritos grises que toca las orillas (las imágenes "sin fondo" que en realidad lo traen pegado).
+    async function uploadSticker(file, maxSide, clean) {
+      if (!/^image\//.test(file.type)) throw new Error("No es una imagen");
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => rej(new Error("No se pudo abrir la imagen"));
+        i.src = URL.createObjectURL(file);
+      });
+      const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      const w = (c.width = Math.round(img.naturalWidth * k));
+      const h = (c.height = Math.round(img.naturalHeight * k));
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(img.src);
+      if (clean) {
+        const d = ctx.getImageData(0, 0, w, h), p = d.data;
+        const bg = (i) => {
+          const r = p[i], g = p[i + 1], b = p[i + 2];
+          return p[i + 3] > 0 && Math.min(r, g, b) >= 205 && Math.max(r, g, b) - Math.min(r, g, b) <= 8;
+        };
+        const seen = new Uint8Array(w * h), stack = [];
+        for (let x = 0; x < w; x++) stack.push(x, (h - 1) * w + x);
+        for (let y = 0; y < h; y++) stack.push(y * w, y * w + w - 1);
+        while (stack.length) {
+          const n = stack.pop();
+          if (seen[n] || !bg(n * 4)) continue;
+          seen[n] = 1;
+          const x = n % w;
+          if (x > 0) stack.push(n - 1);
+          if (x < w - 1) stack.push(n + 1);
+          if (n >= w) stack.push(n - w);
+          if (n < w * (h - 1)) stack.push(n + w);
+        }
+        // Pedazos de cuadritos encerrados (por ejemplo entre los dos novios): zonas claras que mezclan gris y blanco.
+        const lab = new Uint8Array(w * h);
+        for (let s0 = 0; s0 < w * h; s0++) {
+          if (seen[s0] || lab[s0] || !bg(s0 * 4)) continue;
+          const comp = [], st = [s0];
+          let gray = 0, white = 0;
+          lab[s0] = 1;
+          while (st.length) {
+            const q = st.pop();
+            comp.push(q);
+            const v = Math.min(p[q * 4], p[q * 4 + 1], p[q * 4 + 2]);
+            if (v <= 228) gray++;
+            else if (v >= 245) white++;
+            const x = q % w;
+            for (const m of [x > 0 ? q - 1 : -1, x < w - 1 ? q + 1 : -1, q - w, q + w])
+              if (m >= 0 && m < w * h && !lab[m] && !seen[m] && bg(m * 4)) { lab[m] = 1; st.push(m); }
+          }
+          if (comp.length > 150 && gray > comp.length * 0.25 && white > comp.length * 0.25) comp.forEach((q) => (seen[q] = 1));
+        }
+        let any = 0;
+        for (let n = 0; n < w * h; n++) if (seen[n]) { p[n * 4 + 3] = 0; any++; }
+        if (any) ctx.putImageData(d, 0, 0);
+      }
+      let data = c.toDataURL("image/webp", 0.86);
+      let type = "image/webp";
+      if (!data.startsWith("data:image/webp")) { data = c.toDataURL("image/png"); type = "image/png"; }
+      const { url } = await api({ action: "upload", slug, editKey, contentType: type, dataBase64: data.split(",")[1] });
       return url;
     }
 
